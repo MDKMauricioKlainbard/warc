@@ -1,250 +1,114 @@
-import React, { useEffect, useState } from 'react';
-import {
-  View,
-  StyleSheet,
-  Alert,
-  PermissionsAndroid,
-  Platform,
-  TouchableOpacity,
-  Text,
-  ActivityIndicator,
-} from 'react-native';
+import React, {useState} from 'react';
+import {View, Text, ActivityIndicator, Animated} from 'react-native';
 import Mapbox from '@rnmapbox/maps';
-import Geolocation from '@react-native-community/geolocation';
-import TokenMarker from '../../components/map/TokenMarker';
 
-// Configurar tu token de Mapbox aquí
-Mapbox.setAccessToken('sk.eyJ1IjoiZ2FsdTc3NzciLCJhIjoiY21iYjl5OTc0MGZobDJycHh5Y2JrZ3poNCJ9.qbuqOJvDIL8G9ZuKOswYdA');
+// Componentes modularizados
+import AreaSelectorHeader from '../../components/area-selector/AreaSelectorHeader';
+import AreaSelectorMap from '../../components/AreaSelectorMap';
+import AreaSelectorBottomPanel from '../../components/AreaSelectorBottomPanel';
 
-const MapScreen = ({ onBack }) => {
-  const [userLocation, setUserLocation] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+// Hook personalizado y estilos
+import {useAreaSelector} from '../../hooks/useAreaSelector';
+import {AreaSelectorStyles} from '../../styles/AreaSelectorStyles';
 
-  useEffect(() => {
-    requestLocationPermission();
-  }, []);
+// Configurar token de Mapbox - USAR TOKEN PÚBLICO (pk.)
+// Mapbox.setAccessToken('pk.TU_TOKEN_PUBLICO_AQUI');
+console.warn('Configurar token público de Mapbox antes de usar');
 
-  const requestLocationPermission = async () => {
-    if (Platform.OS === 'android') {
-      try {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-          {
-            title: 'Permiso de Ubicación',
-            message: 'Esta app necesita acceso a tu ubicación para mostrar el mapa',
-            buttonNeutral: 'Preguntar después',
-            buttonNegative: 'Cancelar',
-            buttonPositive: 'OK',
-          },
-        );
-        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-          getCurrentLocation();
-        } else {
-          setDefaultLocation();
-        }
-      } catch (err) {
-        console.warn(err);
-        setDefaultLocation();
-      }
-    } else {
-      getCurrentLocation();
-    }
-  };
+const AreaSelectorScreen = ({onBack, onNext}) => {
+  const [animatedValue] = useState(new Animated.Value(0));
 
-  const getCurrentLocation = () => {
-    Geolocation.getCurrentPosition(
-      (position) => {
-        setUserLocation([
-          position.coords.longitude,
-          position.coords.latitude,
-        ]);
-        setIsLoading(false);
-      },
-      (error) => {
-        console.log('Error obteniendo ubicación:', error);
-        Alert.alert('Error', 'No se pudo obtener la ubicación');
-        setDefaultLocation();
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
-    );
-  };
+  // Hook personalizado con toda la lógica
+  const {
+    userLocation,
+    isLoading,
+    selectedPoints,
+    canProceed,
+    isMapReady,
+    polygonGeoJSON,
+    linesGeoJSON,
+    handleMapPress,
+    removePoint,
+    removeLastPoint,
+    clearAllPoints,
+    handleNext,
+    getCurrentLocation,
+  } = useAreaSelector();
 
-  const setDefaultLocation = () => {
-    // Ubicación por defecto (México DF)
-    setUserLocation([-99.1332, 19.4326]);
-    setIsLoading(false);
-  };
+  // Iniciar animación de pulso
+  React.useEffect(() => {
+    const startPulseAnimation = () => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(animatedValue, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(animatedValue, {
+            toValue: 0,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ]),
+      ).start();
+    };
 
-  if (isLoading || !userLocation) {
+    startPulseAnimation();
+  }, [animatedValue]);
+
+  // Pantalla de carga
+  if (!isMapReady) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#E91E63" />
-        <Text style={styles.loadingText}>Cargando mapa...</Text>
+      <View style={AreaSelectorStyles.loadingContainer}>
+        <ActivityIndicator size="large" color="#4F46E5" />
+        <Text style={AreaSelectorStyles.loadingText}>Cargando mapa...</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      {/* Header con botón de regreso */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack}>
-          <Text style={styles.backButtonText}>← Volver</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Explorar Mapa</Text>
-        <View style={styles.headerSpacer} />
+    <View style={AreaSelectorStyles.container}>
+      {/* Header */}
+      <AreaSelectorHeader
+        title="Seleccionar Área"
+        onBack={onBack}
+        onClear={clearAllPoints}
+        hasPoints={selectedPoints.length > 0}
+      />
+
+      {/* Instrucciones */}
+      <View style={AreaSelectorStyles.instructionsContainer}>
+        <Text style={AreaSelectorStyles.instructionsText}>
+          Selecciona mínimo 3 puntos para crear un área
+        </Text>
+        <Text style={AreaSelectorStyles.pointsCounter}>
+          {selectedPoints.length}/6 puntos seleccionados
+        </Text>
       </View>
 
       {/* Mapa */}
-      <Mapbox.MapView
-        style={styles.map}
-        zoomEnabled={true}
-        scrollEnabled={true}
-        pitchEnabled={true}
-        rotateEnabled={true}
-        //styleURL="mapbox://styles/mapbox/dark-v10"
-      >
-        <Mapbox.Camera
-          centerCoordinate={userLocation}
-          zoomLevel={14}
-          animationMode="flyTo"
-          animationDuration={2000}
-        />
-        
-        {/* Marcador de ubicación del usuario */}
-        <Mapbox.PointAnnotation
-          id="userLocation"
-          coordinate={userLocation}
-        >
-          <View style={styles.annotationContainer}>
-            <View style={styles.annotationFill} />
-          </View>
-        </Mapbox.PointAnnotation>
-        
-        <TokenMarker
-          animated={true}
-        />
-      </Mapbox.MapView>
+      <AreaSelectorMap
+        userLocation={userLocation}
+        selectedPoints={selectedPoints}
+        polygonGeoJSON={polygonGeoJSON}
+        linesGeoJSON={linesGeoJSON}
+        animatedValue={animatedValue}
+        onMapPress={handleMapPress}
+        onPointRemove={removePoint}
+        onRecenter={getCurrentLocation}
+        onUndo={removeLastPoint}
+      />
 
-      {/* Botones de control flotantes */}
-      <View style={styles.controlsContainer}>
-        <TouchableOpacity 
-          style={styles.controlButton}
-          onPress={() => {
-            // Recentrar en la ubicación del usuario
-            getCurrentLocation();
-          }}
-        >
-          <Text style={styles.controlButtonText}>📍</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Panel inferior */}
+      <AreaSelectorBottomPanel
+        selectedPoints={selectedPoints}
+        canProceed={canProceed}
+        onPointRemove={removePoint}
+        onNext={() => handleNext(onNext)}
+      />
     </View>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1A1A1A',
-  },
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: '#1A1A1A',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    color: '#F48FB1',
-    fontSize: 16,
-    marginTop: 20,
-    fontWeight: '500',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    paddingTop: Platform.OS === 'ios' ? 50 : 15,
-    backgroundColor: '#2A2A2A',
-    borderBottomWidth: 2,
-    borderBottomColor: '#E91E63',
-    shadowColor: '#E91E63',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  backButton: {
-    backgroundColor: '#E91E63',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    shadowColor: '#C2185B',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  backButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  headerTitle: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#E91E63',
-  },
-  headerSpacer: {
-    width: 80, // Para balancear el espacio del botón
-  },
-  map: {
-    flex: 1,
-  },
-  annotationContainer: {
-    width: 24,
-    height: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 3,
-    borderColor: '#E91E63',
-    shadowColor: '#E91E63',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.5,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  annotationFill: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#E91E63',
-  },
-  controlsContainer: {
-    position: 'absolute',
-    bottom: 30,
-    right: 20,
-  },
-  controlButton: {
-    backgroundColor: '#E91E63',
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#C2185B',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    elevation: 8,
-  },
-  controlButtonText: {
-    fontSize: 20,
-  },
-});
-
-export default MapScreen;
+export default AreaSelectorScreen;
