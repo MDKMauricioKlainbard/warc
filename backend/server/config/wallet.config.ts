@@ -65,6 +65,7 @@ class Wallet {
      * 
      * Este método:
      * - Verifica que el contrato del token (`this.token`) haya sido inicializado correctamente.
+     * - Verifica que la cantidad a transferir sea mayor a 0.
      * - Llama a la función `transfer` del contrato para enviar los tokens al destinatario.
      * - Convierte la cantidad de tokens a wei usando `parseEther`.
      * - Espera la confirmación de la transacción (`tx.wait()`).
@@ -74,6 +75,10 @@ class Wallet {
         if (!this.token) {
             throw new Error("El contrato del token no fue instanciado")
         }
+        if(Number(amount) <= 0) {
+            throw new Error("La cantidad a transferir debe ser mayor a 0")
+        }
+
         const tx = await this.token.transfer(to, parseEther(amount))
         return await tx.wait()
     }
