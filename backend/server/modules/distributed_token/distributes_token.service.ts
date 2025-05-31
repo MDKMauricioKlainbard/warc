@@ -5,12 +5,15 @@
 import { bbox, pointToPolygonDistance, polygon, randomPoint } from "@turf/turf"
 import { logger } from "@loaders/logger/logger.loader"
 
-export const generateRandomPoints = async (totalPoints: number, polygonCoordinates: number[][]) => {
+export const generateRandomPoints = async (totalPoints: number, polygonCoordinates: number[][]): Promise<{
+    coordinates: [number, number],
+    quantity: number,
+}[]> => {
     if (totalPoints < 0) {
         throw new Error("La cantidad debe ser mayor a 0")
     }
     if (polygonCoordinates.length < 3) {
-        throw new Error("El polígono debe tener al menos 3 puntos")
+        throw new Error("El polígono debe tener al menos 4 puntos.")
     }
 
     const regionPolygon = polygon([polygonCoordinates]);
@@ -42,7 +45,7 @@ export const generateRandomPoints = async (totalPoints: number, polygonCoordinat
         remainingPoints -= points
     }
 
-    const generatedCoordinates: { coordinates: [number, number], pointsInCoordinates: number }[] = []
+    const generatedCoordinates: { coordinates: [number, number], quantity: number }[] = []
     let attempts = 0
 
     while (generatedCoordinates.length < totalCoordinateSlots && attempts < 1000) {
@@ -56,11 +59,10 @@ export const generateRandomPoints = async (totalPoints: number, polygonCoordinat
             const newCoord: [number, number] = feature.geometry.coordinates as [number, number]
             generatedCoordinates.push({
                 coordinates: newCoord,
-                pointsInCoordinates: assignedPoints[generatedCoordinates.length]
+                quantity: assignedPoints[generatedCoordinates.length]
             })
         }
     }
 
-    logger.info(remainingPoints)
     return generatedCoordinates
 }

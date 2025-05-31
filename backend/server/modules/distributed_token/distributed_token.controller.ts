@@ -13,3 +13,7 @@ DistributedTokenController.post('/', async (req, res): Promise<void> => {
     }
     return
 })
+
+DistributedTokenController.get('/', async(req, res): Promise<void> => {
+    res.send("Hola")
+})
