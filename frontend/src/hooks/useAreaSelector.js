@@ -3,7 +3,7 @@ import {Alert, PermissionsAndroid, Platform} from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
 
 export const useAreaSelector = () => {
-  const [userLocation, setUserLocation] = useState(null);
+  const [userLocation, setUserLocation] = useState([-99.1332, 19.4326]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPoints, setSelectedPoints] = useState([]);
 
@@ -147,7 +147,14 @@ export const useAreaSelector = () => {
       );
       return;
     }
-
+    const lastPoint = {
+      id: Date.now().toString(),
+      coordinates: selectedPoints[0].coordinates, // Repetir el primer punto para cerrar el polígono
+      order: selectedPoints.length + 1,
+    };
+    const updatedPoints = [...selectedPoints,lastPoint];
+    const resPoints = updatedPoints.map((point) =>  [point.coordinates[0] , point.coordinates[1]] );
+    console.log('Puntos seleccionados:', [resPoints]);
     onNext && onNext(selectedPoints);
   };
 
