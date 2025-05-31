@@ -36,10 +36,12 @@ const userSchema = new mongoose.Schema({
 
     /**
      * Saldo de la cuenta del usuario.
+     * Es un campo obligatorio.
      * Debe ser un número igual o mayor a 0.
      */
     accountBalance: {
         type: Number,
+        required: true,
         min: 0,
     },
 }, {
