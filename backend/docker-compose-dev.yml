@@ -6,16 +6,16 @@ services:
     environment:
       MONGO_INITDB_DATABASE: walkardev
       MONGO_INITDB_ROOT_USERNAME: dev
-      MONGO_INIT_ROOT_PASSWORD: dev
-      networks:
-        - app-network
-      volumes:
-        - mongo-data:/data/db
-      ports:
-        - "27017:27017"
-    
+      MONGO_INITDB_ROOT_PASSWORD: dev
+    networks:
+      - app-network
+    volumes:
+      - mongo-data:/data/db
+    ports:
+      - "27017:27017"
+
 volumes:
-   mongo-data:
+  mongo-data:
 
 networks:
   app-network:
