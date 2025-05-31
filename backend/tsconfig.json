@@ -1,0 +1,27 @@
+{
+    "compilerOptions": {
+        "target": "ES2020",
+        "module": "ESNext",
+        "rootDir": "server",
+        "moduleResolution": "node",
+        "outDir": "dist",
+        "esModuleInterop": true,
+        "forceConsistentCasingInFileNames": true,
+        "strict": true,
+        "skipLibCheck": true,
+        "experimentalDecorators": true,
+        "baseUrl": ".",
+        "paths": {
+            "@loaders/*": [
+                "server/loaders/*"
+            ],
+            "@server/*": [
+                "server/*"
+            ],
+        },
+    },
+    "exclude": [
+        "node_modules",
+        "dist"
+    ],
+}
