@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, {useState} from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
 import MapScreen from '../map/MapScreen';
 import Icon from 'react-native-vector-icons/FontAwesome';
 
-const { width } = Dimensions.get('window');
+const {width} = Dimensions.get('window');
 
 const HomeScreen = () => {
   const [currentScreen, setCurrentScreen] = useState('home');
@@ -56,14 +56,13 @@ const HomeScreen = () => {
     },
   ];
 
-  const renderTokenItem = ({ item }) => (
+  const renderTokenItem = ({item}) => (
     <View style={styles.tokenItem}>
-      <View style={[styles.tokenIcon, { backgroundColor: item.color + '20' }]}>
+      <View style={[styles.tokenIcon, {backgroundColor: item.color + '20'}]}>
         <Text style={styles.tokenEmoji}>{item.icon}</Text>
       </View>
       <View style={styles.tokenInfo}>
         <Text style={styles.tokenName}>{item.name}</Text>
-        <Text style={styles.tokenDistance}>📍 {item.distance}</Text>
       </View>
       <TouchableOpacity style={styles.irButton}>
         <Text style={styles.irButtonText}>IR</Text>
@@ -77,10 +76,14 @@ const HomeScreen = () => {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}>
         {/* Mapa interactivo placeholder */}
         <View style={styles.mapContainer}>
-          <TouchableOpacity style={styles.mapPlaceholder} onPress={navigateToMap}>
+          <TouchableOpacity
+            style={styles.mapPlaceholder}
+            onPress={navigateToMap}>
             {/* Decorative icons */}
             <View style={[styles.decorativeIcon, styles.icon1]}>
               <Text style={styles.iconText}>💰</Text>
@@ -91,10 +94,17 @@ const HomeScreen = () => {
             <View style={[styles.decorativeIcon, styles.icon3]}>
               <Text style={styles.iconText}>🏆</Text>
             </View>
-            
+
             {/* Botón central de explorar */}
-            <TouchableOpacity style={styles.exploreButton} onPress={navigateToMap}>
-              <Icon name="globe" size={16} color="#FFFFFF" style={{ marginRight: 8 }} />
+            <TouchableOpacity
+              style={styles.exploreButton}
+              onPress={navigateToMap}>
+              <Icon
+                name="globe"
+                size={16}
+                color="#FFFFFF"
+                style={{marginRight: 8}}
+              />
               <Text style={styles.exploreButtonText}>EXPLORAR</Text>
             </TouchableOpacity>
           </TouchableOpacity>
@@ -117,14 +127,16 @@ const HomeScreen = () => {
           <View style={styles.tokensSectionHeader}>
             <View style={styles.sectionTitleContainer}>
               <View style={styles.redDot} />
-              <Text style={styles.sectionTitle}>Tokens en tu área (Radio 2km)</Text>
+              <Text style={styles.sectionTitle}>
+                Tokens en tu área (Radio 2km)
+              </Text>
             </View>
           </View>
-          
+
           <FlatList
             data={tokensData}
             renderItem={renderTokenItem}
-            keyExtractor={(item) => item.id}
+            keyExtractor={item => item.id}
             scrollEnabled={false}
             showsVerticalScrollIndicator={false}
           />
@@ -157,7 +169,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: {width: 0, height: 4},
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
@@ -171,7 +183,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
@@ -199,7 +211,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     shadowColor: '#4F46E5',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: {width: 0, height: 4},
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
@@ -224,7 +236,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     alignItems: 'center',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
@@ -272,7 +284,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
