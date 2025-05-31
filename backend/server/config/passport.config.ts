@@ -22,7 +22,6 @@ import { Logger } from "winston"
  */
 export const initializePassportStrategies = (logger: Logger): void => {
     logger.debug("Iniciando estrategias de autenticación para passport...")
-
     /**
      * Estrategia Local:
      * Utiliza `email` y `password` como credenciales.
@@ -52,6 +51,17 @@ export const initializePassportStrategies = (logger: Logger): void => {
         }
     ))
 
+    // Verifica si existe JWT_SECRET. De lo contrario, advierte por consola.
+    // Si el entorno es producción, detiene automáticamente el servidor para evitar fallos de seguridad.
+    const { JWT_SECRET, NODE_ENV } = process.env
+    if (!JWT_SECRET) {
+        logger.warn("No se ha especificado un secreto JWT. Verificar archivo .env o variables de entorno en producción")
+        if (NODE_ENV === "production") {
+            logger.error("No se ha especificado un secreto JWT. El servidor se detendrá")
+            process.exit(1)
+        }
+    }
+
     /**
      * Estrategia JWT:
      * Extrae el token JWT del encabezado `Authorization` como Bearer.
@@ -61,7 +71,7 @@ export const initializePassportStrategies = (logger: Logger): void => {
         new JwtStrategy(
             {
                 jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(), // Extrae el token del header
-                secretOrKey: process.env.JWT_SECRET || "secret123", // Clave secreta para verificar el token
+                secretOrKey: JWT_SECRET!, // Clave secreta para verificar el token
             },
             async (jwt_payload, done) => {
                 try {
