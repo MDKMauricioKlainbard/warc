@@ -1,4 +1,4 @@
-import { bbox, pointToPolygonDistance, polygon, randomPoint } from "@turf/turf"
+import { bbox, distance, pointToPolygonDistance, polygon, randomPoint } from "@turf/turf"
 import { distributedTokenModel } from "./distributed_token.model"
 
 /**
@@ -91,7 +91,51 @@ export const generateRandomPoints = async (
     return generatedCoordinates
 }
 
+/**
+ * Obtiene todos los puntos de distribución generados previamente.
+ * 
+ * Esta función consulta la base de datos utilizando el modelo `distributedTokenModel`
+ * y devuelve todos los documentos almacenados que representan puntos con coordenadas
+ * y cantidades asignadas de tokens.
+ * 
+ * @returns {Promise<Array<Object>>} Una promesa que se resuelve con un array de objetos,
+ * cada uno representando un punto de distribución con su cantidad asignada.
+ */
 export const getAllDistributionPoints = async () => {
     const distributionPoints = await distributedTokenModel.find();
-    return distributionPoints
+    return distributionPoints;
+}
+
+export const exchangePointsInCoordinate = async (coordinateId: string, userPosition: [number, number], userId: string): Promise<void> => {
+    // SE HACEN VALIDACIONES INICIALES:
+    if (!userId) {
+        throw new Error("No se ha dado el ID del usuario.")
+    }
+    if (!coordinateId) {
+        throw new Error("No se ha dado el ID del punto de distribución.")
+    }
+    if (userPosition.length !== 2) {
+        throw new Error("Las coordenadas del usuario deben ser [longitud, latitud]")
+    }
+
+    // SE TOMA EL PUNTO DE DISTRIBUCIÓN Y EL USUARIO DE LA BASE DE DATOS, SE HACE CON PROMISE.ALL PARA PARALELIZAR LAS PROMESAS
+    const [distributionPoint, user] = await Promise.all([distributedTokenModel.findById(coordinateId), "dummy-user"])
+    // SI NO EXISTE SE TIRA ERROR
+    if (!distributionPoint) {
+        throw new Error("No se ha encontrado el punto de distribución")
+    }
+    const { quantity, coordinates } = distributionPoint
+
+    // CREADO EL MODELO DE USUARIO, SE VALIDA PRIMERO SI EL USUARIO ESTÁ A RANGO DEL PUNTO DE DISTRIBUCIÓN
+    const distanceFromDistributionPoint = distance(coordinates, userPosition, { units: "meters" })
+    if (distanceFromDistributionPoint > 10) {
+        throw new Error("La distancia al punto de distribución debe ser menor o igual a 10 metros")
+        // NO SE PERMITE AL USUARIO OBTENER LOS PUNTOS SI ESTÁ A MÁS DE 10 METROS DE DISTANCIA
+    }
+
+    // SE ASIGNAN PUNTOS: user.quantity += quantity; user.save()
+    // SE ELIMINA EL PUNTO DE DISTRIBUCIÓN (DEBERÍA SER UN SOFT DELETE, PERO NO HAY TIEMPO PARA ESO)
+    distributedTokenModel.deleteOne({ _id: coordinateId })
+
+    return;
 }

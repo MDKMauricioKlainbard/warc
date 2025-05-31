@@ -79,6 +79,9 @@ DistributedTokenController.post('/in-polygon', async (req, res): Promise<void> =
  *               items:
  *                 type: object
  *                 properties:
+ *                   _id:
+ *                     type: string
+ *                     example: "683b226e02600c8a5c2a2378"
  *                   coordinates:
  *                     type: array
  *                     items:
