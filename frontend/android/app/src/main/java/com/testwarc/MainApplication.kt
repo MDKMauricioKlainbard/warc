@@ -1,4 +1,4 @@
-package com.warcfront
+package com.testwarc
 
 import android.app.Application
 import com.facebook.react.PackageList
