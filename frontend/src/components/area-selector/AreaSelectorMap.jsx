@@ -80,9 +80,6 @@ const AreaSelectorMap = ({
             onSelected={() => handlePointPress(point)}>
             <View style={AreaSelectorStyles.selectedPointMarker}>
               <Text style={AreaSelectorStyles.pointNumber}>{point.order}</Text>
-              <View style={AreaSelectorStyles.deleteIndicator}>
-                <Icon name="times" size={8} color="#FFFFFF" />
-              </View>
             </View>
           </Mapbox.PointAnnotation>
         ))}
