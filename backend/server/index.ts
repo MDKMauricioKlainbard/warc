@@ -2,15 +2,18 @@ import express from "express"
 import { baseMiddlewaresLoader } from "@loaders/base_middlewares/base_middlewares.loader";
 import { logger } from "@loaders/logger/logger.loader";
 import { initDatabase } from "@loaders/init_database/init_database.loader";
+import { loadEnvironmentVariables } from "@loaders/environment_variables/environment_variables.loader";
 
-const PORT = 3000;
 const app = express();
 
+loadEnvironmentVariables(logger);
 baseMiddlewaresLoader(app);
-initDatabase(logger)
+initDatabase(logger);
+
+const PORT = process.env.APP_PORT || 3000;
 
 app.listen(PORT, () => {
-    const ENVIRONMENT = process.env.NODE_ENV?.toUpperCase() || "DESARROLLO";
+    const ENVIRONMENT = process.env.NODE_ENV?.toUpperCase() || "DEVELOPMENT";
     const lineLength = "╠══════════════════════════════════════════════════╣".length;
     const lines = {
         port: `║ Puerto: ${PORT.toString()}` + ' '.repeat(lineLength - `║ Puerto: ${PORT.toString()}`.length - 1) + '║\n',
@@ -20,7 +23,7 @@ app.listen(PORT, () => {
     }
     logger.info('\n' +
         '╔══════════════════════════════════════════════════╗\n' +
-        '║                 SERVIDOR INICIADO                ║\n' +
+        '║                SERVIDOR INICIADO                 ║\n' +
         '╠══════════════════════════════════════════════════╣\n' +
         lines.port +
         lines.environment +
