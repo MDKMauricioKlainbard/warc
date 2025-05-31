@@ -53,6 +53,23 @@ class Wallet {
         return
     }
 
+        /**
+     * Realiza una transferencia del token WARC desde la billetera del servidor a otra dirección.
+     * 
+     * @param to Dirección Ethereum del receptor.
+     * @param amount Cantidad de tokens a transferir, expresada como string (en unidades enteras, no en wei).
+     * 
+     * @returns La transacción confirmada (`ethers.TransactionReceipt`), una vez que ha sido minada.
+     * 
+     * @throws {Error} Si el contrato del token no fue instanciado correctamente antes de llamar al método.
+     * 
+     * Este método:
+     * - Verifica que el contrato del token (`this.token`) haya sido inicializado correctamente.
+     * - Llama a la función `transfer` del contrato para enviar los tokens al destinatario.
+     * - Convierte la cantidad de tokens a wei usando `parseEther`.
+     * - Espera la confirmación de la transacción (`tx.wait()`).
+     */
+
     async transferWARC(to: string, amount: string) {
         if (!this.token) {
             throw new Error("El contrato del token no fue instanciado")
