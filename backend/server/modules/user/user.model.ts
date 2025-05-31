@@ -1,25 +1,49 @@
 import mongoose from "mongoose";
 
+// DESPUÉS VEMOS SI METEMOS ACÁ AUTENTICACIÓN DE TERCEROS
+
 /**
  * Esquema de usuario para la base de datos.
  * 
- * Representa los datos de un usuario del sistema, incluyendo credenciales y saldo de cuenta.
+ * Representa los datos personales y de acceso de un usuario del sistema,
+ * incluyendo su nombre, correo electrónico, contraseña y, opcionalmente,
+ * la dirección de su billetera en la red Polkadot.
  * 
  * Campos:
- * - `username`: nombre de usuario único (obligatorio).
+ * - `name`: nombre del usuario (obligatorio).
+ * - `lastname`: apellido del usuario (obligatorio).
+ * - `email`: correo electrónico único (obligatorio).
  * - `password`: contraseña del usuario (obligatorio).
- * - `accountBalance`: saldo actual del usuario en su cuenta (opcional, no puede ser negativo).
+ * - `walletAddress`: dirección pública de la billetera del usuario en la red Polkadot (opcional).
  * 
- * Además, el esquema incluye automáticamente las marcas de tiempo:
+ * El esquema incluye automáticamente:
  * - `createdAt`: fecha de creación del documento.
- * - `updatedAt`: fecha de la última actualización.
+ * - `updatedAt`: fecha de la última modificación.
  */
 const userSchema = new mongoose.Schema({
     /**
-     * Nombre de usuario único.
-     * Es obligatorio y no puede repetirse en la base de datos.
+     * Nombre del usuario.
+     * Campo obligatorio.
      */
-    username: {
+    name: {
+        type: String,
+        required: true,
+    },
+
+    /**
+     * Apellido del usuario.
+     * Campo obligatorio.
+     */
+    lastname: {
+        type: String,
+        required: true,
+    },
+
+    /**
+     * Correo electrónico del usuario.
+     * Debe ser único y es obligatorio.
+     */
+    email: {
         type: String,
         required: true,
         unique: true,
@@ -27,7 +51,7 @@ const userSchema = new mongoose.Schema({
 
     /**
      * Contraseña del usuario.
-     * Es un campo obligatorio.
+     * Campo obligatorio.
      */
     password: {
         type: String,
@@ -35,18 +59,18 @@ const userSchema = new mongoose.Schema({
     },
 
     /**
-     * Saldo de la cuenta del usuario.
-     * Es un campo obligatorio.
-     * Debe ser un número igual o mayor a 0.
+     * Dirección pública de la billetera del usuario en la red Polkadot.
+     * Este campo es opcional.
+     * 
+     * Ejemplo de dirección en Polkadot:
+     * `14p1VYt5bEdbFZ4C2iHt6RQ5k9q2ZfUvM1sDeXr...`
      */
-    accountBalance: {
-        type: Number,
-        required: true,
-        min: 0,
-    },
+    walletAddress: {
+        type: String,
+    }
 }, {
     /**
-     * Incluye automáticamente los campos `createdAt` y `updatedAt`.
+     * Habilita automáticamente los campos `createdAt` y `updatedAt`.
      */
     timestamps: true
 });

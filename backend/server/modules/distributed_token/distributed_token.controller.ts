@@ -5,7 +5,7 @@ export const DistributedTokenController = express.Router()
 
 /**
  * @swagger
- * /tokens/in-polygon:
+ * api/distributed-token/in-polygon:
  *   post:
  *     summary: Genera puntos aleatorios dentro de un polígono con distribución de tokens
  *     tags: [Tokens]
@@ -65,7 +65,7 @@ DistributedTokenController.post('/in-polygon', async (req, res): Promise<void> =
 
 /**
  * @swagger
- * /tokens/get-distribution-points:
+ * api/distributed-token/get-distribution-points:
  *   get:
  *     summary: Obtiene todos los puntos de distribución generados
  *     tags: [Tokens]
