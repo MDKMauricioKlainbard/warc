@@ -29,6 +29,7 @@ export const UserController = express.Router()
  *               - lastname
  *               - email
  *               - password
+ *               - walletAddress
  *             properties:
  *               name:
  *                 type: string
@@ -43,6 +44,9 @@ export const UserController = express.Router()
  *                 type: string
  *                 format: password
  *                 example: mi_contraseña_segura123
+ *               walletAddress:
+ *                 type: string
+ *                 example: "0xe81189076cdbeb3D77c7d04C451b26eA6c43B4D0"
  *     responses:
  *       200:
  *         description: Usuario registrado con éxito
@@ -64,8 +68,8 @@ export const UserController = express.Router()
  */
 UserController.post("/register", async (req, res) => {
     try {
-        const { name, lastname, email, password } = req.body
-        await register({ name, lastname, email, password })
+        const { name, lastname, email, password, walletAddress } = req.body
+        await register({ name, lastname, email, password, walletAddress })
         res.status(200).send("Usuario registrado con éxito")
     } catch (error) {
         res.status(500).json({ message: (error as Error).message })
@@ -111,6 +115,9 @@ UserController.post("/register", async (req, res) => {
  *                 user:
  *                   type: object
  *                   properties:
+ *                     _id:
+ *                       type: string
+ *                       example: 683b84b9d1ad3ee1e58b550e
  *                     email:
  *                       type: string
  *                       example: juan.perez@email.com

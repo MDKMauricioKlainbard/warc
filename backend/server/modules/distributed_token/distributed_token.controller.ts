@@ -1,5 +1,5 @@
 import express from "express"
-import { generateRandomPoints, getAllDistributionPoints } from "./distributes_token.service"
+import { exchangePointsInCoordinate, generateRandomPoints, getAllDistributionPoints } from "./distributes_token.service"
 
 export const DistributedTokenController = express.Router()
 
@@ -99,6 +99,69 @@ DistributedTokenController.get('/get-distribution-points', async (req, res): Pro
         res.json(result)
     } catch (error) {
         res.status(500).json({ message: (error as Error).message })
+    }
+    return
+})
+
+/**
+ * @swagger
+ * api/distributed-token/exchange-tokens:
+ *   post:
+ *     summary: Canjea tokens desde un punto de distribución cercano
+ *     tags: [Tokens]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - coordinateId
+ *               - userPosition
+ *               - userId
+ *             properties:
+ *               coordinateId:
+ *                 type: string
+ *                 description: ID del punto de distribución.
+ *                 example: "64ff4e2b123a9a001e77e5d9"
+ *               userPosition:
+ *                 type: array
+ *                 description: Coordenadas del usuario en formato [longitud, latitud].
+ *                 items:
+ *                   type: number
+ *                 minItems: 2
+ *                 maxItems: 2
+ *                 example: [-70.6506, -33.4372]
+ *               userId:
+ *                 type: string
+ *                 description: ID del usuario que solicita el canje.
+ *                 example: "64ff4d99123a9a001e77e5d7"
+ *     responses:
+ *       200:
+ *         description: Transacción realizada con éxito
+ *         content:
+ *           text/plain:
+ *             schema:
+ *               type: string
+ *               example: Transacción realizada con éxito.
+ *       500:
+ *         description: Error al realizar el canje de tokens
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: La distancia al punto de distribución debe ser menor o igual a 10 metros
+ */
+DistributedTokenController.post("/exchange-tokens", async (req, res): Promise<void> => {
+    try {
+        const {coordinateId, userPosition, userId} = req.body;
+        await exchangePointsInCoordinate(coordinateId, userPosition, userId)
+        res.status(200).send("Transacción realizada con éxito.")
+    } catch (error) {
+        res.status(500).json({message: (error as Error).message})
     }
     return
 })

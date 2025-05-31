@@ -18,7 +18,7 @@ import jwt from "jsonwebtoken";
  * 
  * @returns void
  */
-export const register = async (user: { name: string, lastname: string, email: string, password: string }) => {
+export const register = async (user: { name: string, lastname: string, email: string, password: string, walletAddress: string }) => {
     const existingUser = await userModel.findOne({ email: user.email })
 
     if (existingUser) {
@@ -30,7 +30,8 @@ export const register = async (user: { name: string, lastname: string, email: st
         name: user.name,
         lastname: user.lastname,
         email: user.email,
-        password: hashedPassword
+        password: hashedPassword,
+        walletAddress: user.walletAddress
     })
     await newUser.save()
 
