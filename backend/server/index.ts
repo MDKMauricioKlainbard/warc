@@ -5,6 +5,7 @@ import { initDatabase } from "@loaders/init_database/init_database.loader";
 import { loadEnvironmentVariables } from "@loaders/environment_variables/environment_variables.loader";
 import { routesLoader } from "@loaders/routes/routes.loader";
 import { swaggerDocs } from "./docs/swagger";
+import { initializePassportStrategies } from "./config/passport.config";
 
 const app = express();
 
@@ -12,6 +13,7 @@ loadEnvironmentVariables(logger);
 baseMiddlewaresLoader(app);
 initDatabase(logger);
 routesLoader(app);
+initializePassportStrategies(logger)
 swaggerDocs(app);
 
 const PORT = process.env.APP_PORT || 3000;

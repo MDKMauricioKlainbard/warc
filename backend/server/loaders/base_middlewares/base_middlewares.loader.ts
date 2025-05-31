@@ -11,6 +11,7 @@ import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 import rateLimit from 'express-rate-limit';
+import passport from "passport";
 
 /**
  * Carga los middlewares esenciales en la aplicación Express.
@@ -26,6 +27,7 @@ import rateLimit from 'express-rate-limit';
  * - helmet: Para seguridad básica de headers HTTP
  * - morgan: Para logging de requests en desarrollo
  * - rateLimit: Para limitar peticiones y prevenir ataques de fuerza bruta
+ * - passport.initialize: Para inicializar la configuración de passport para autenticación de usuarios.
  */
 export const baseMiddlewaresLoader = (app: Express): void => {
     // Middleware para parsear bodies JSON
@@ -48,6 +50,9 @@ export const baseMiddlewaresLoader = (app: Express): void => {
         windowMs: 15 * 60 * 1000, // 15 minutos
         max: 100, // Límite por IP
     }));
+
+    // Inicializa la configuración de passport para autenticación de usuarios.
+    app.use(passport.initialize())
 
     return;
 };
