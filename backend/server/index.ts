@@ -1,11 +1,13 @@
 import express from "express"
 import { baseMiddlewaresLoader } from "@loaders/base_middlewares/base_middlewares.loader";
 import { logger } from "@loaders/logger/logger.loader";
+import { initDatabase } from "@loaders/init_database/init_database.loader";
 
 const PORT = 3000;
 const app = express();
 
 baseMiddlewaresLoader(app);
+initDatabase(logger)
 
 app.listen(PORT, () => {
     const ENVIRONMENT = process.env.NODE_ENV?.toUpperCase() || "DESARROLLO";
