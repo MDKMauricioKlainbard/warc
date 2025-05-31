@@ -4,13 +4,15 @@ import { logger } from "@loaders/logger/logger.loader";
 import { initDatabase } from "@loaders/init_database/init_database.loader";
 import { loadEnvironmentVariables } from "@loaders/environment_variables/environment_variables.loader";
 import { routesLoader } from "@loaders/routes/routes.loader";
+import { swaggerDocs } from "./docs/swagger";
 
 const app = express();
 
 loadEnvironmentVariables(logger);
 baseMiddlewaresLoader(app);
 initDatabase(logger);
-routesLoader(app)
+routesLoader(app);
+swaggerDocs(app);
 
 const PORT = process.env.APP_PORT || 3000;
 
