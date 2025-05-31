@@ -1,7 +1,7 @@
 import React from 'react';
 import {View, TouchableOpacity, Text} from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
-import {AreaSelectorStyles} from '../styles/AreaSelectorStyles';
+import {AreaSelectorStyles} from '../../styles/AreaSelectorStyles';
 
 const AreaSelectorHeader = ({
   title = 'Seleccionar Área',

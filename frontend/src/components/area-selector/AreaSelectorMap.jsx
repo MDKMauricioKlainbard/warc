@@ -2,7 +2,7 @@ import React from 'react';
 import {View, Text, Animated, Alert} from 'react-native';
 import Mapbox from '@rnmapbox/maps';
 import Icon from 'react-native-vector-icons/FontAwesome';
-import {AreaSelectorStyles} from '../styles/AreaSelectorStyles';
+import {AreaSelectorStyles} from '../../styles/AreaSelectorStyles';
 import AreaSelectorControls from './AreaSelectorControls';
 
 const AreaSelectorMap = ({
@@ -80,9 +80,6 @@ const AreaSelectorMap = ({
             onSelected={() => handlePointPress(point)}>
             <View style={AreaSelectorStyles.selectedPointMarker}>
               <Text style={AreaSelectorStyles.pointNumber}>{point.order}</Text>
-              <View style={AreaSelectorStyles.deleteIndicator}>
-                <Icon name="times" size={8} color="#FFFFFF" />
-              </View>
             </View>
           </Mapbox.PointAnnotation>
         ))}
