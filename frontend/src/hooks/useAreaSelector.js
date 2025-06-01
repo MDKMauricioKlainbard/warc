@@ -3,6 +3,7 @@ import {Alert, PermissionsAndroid, Platform} from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
 import axios from 'axios';
 import config from '../../config';
+const walletAddress = '0xe81189076cdbeb3D77c7d04C451b26eA6c43B4D0';
 
 const API_BASE_URL = config.API_URL;
 
@@ -191,7 +192,11 @@ export const useAreaSelector = () => {
 
       const response = await axios.post(
         `${API_BASE_URL}/api/distributed-token/in-polygon`,
-        {totalPoints: tokenAmount, polygonCoordinates: resPoints},
+        {
+          totalPoints: tokenAmount,
+          polygonCoordinates: resPoints,
+          walletAddress:walletAddress,
+        },
         {
           timeout: 30000,
           headers: {
