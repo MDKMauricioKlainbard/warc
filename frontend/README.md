@@ -1,97 +1,92 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# WalkARCoin Frontend (Beta)
 
-# Getting Started
+![WARC Logo](https://github.com/MDKMauricioKlainbard/warc/blob/main/frontend/assets/logo-warc.png)
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+> 🧪 **Versión beta del frontend móvil de WalkARCoin (WARC)**  
+> 💡 La funcionalidad de Realidad Aumentada (AR) será incluida en futuras versiones.  
+> 🧑‍💻 Este proyecto está construido con **React Native** y tecnologías modernas para mapas, navegación, animaciones y geolocalización.
 
-## Step 1: Start Metro
+---
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+## 📱 ¿Qué es WalkARCoin?
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+**WalkARCoin (WARC)** es una plataforma Web3 que recompensa a los usuarios con tokens por caminar, explorar su entorno y recolectar NFTs en coordenadas reales. Esta app móvil permite a los usuarios visualizar tokens y NFTs geolocalizados a través de un mapa interactivo. En esta versión beta, nos enfocamos en:
 
-```sh
-# Using npm
-npm start
+- Mapa con tokens distribuidos geográficamente.
+- Sistema de navegación.
+- Recolección de tokens solo si el usuario está cerca (verificado por GPS).
+- Soporte inicial para NFTs geolocalizados (sin visualización AR aún).
 
-# OR using Yarn
-yarn start
-```
+---
 
-## Step 2: Build and run your app
+## 🚀 Tecnologías Utilizadas
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
+- **React Native v0.79.2**
+- **React v19**
+- **@rnmapbox/maps** para mapas y geolocalización avanzada.
+- **React Navigation** para navegación por pantallas.
+- **Async Storage** para persistencia local.
+- **Axios** para llamadas HTTP.
+- **TypeScript** para tipado estricto.
+- **Patch Package** para ajustes temporales de dependencias.
 
-### Android
+---
 
-```sh
-# Using npm
-npm run android
+## 📦 Scripts disponibles
 
-# OR using Yarn
-yarn android
-```
+| Script         | Comando                         | Descripción                                  |
+|----------------|----------------------------------|----------------------------------------------|
+| Iniciar App    | `npm run start`                  | Inicia el metro bundler                      |
+| Android        | `npm run android`                | Lanza la app en un dispositivo/emulador Android |
+| iOS            | `npm run ios`                    | Lanza la app en un simulador iOS (macOS)     |
+| Linter         | `npm run lint`                   | Ejecuta ESLint sobre el proyecto             |
+| Tests          | `npm run test`                   | Ejecuta pruebas con Jest                     |
+| Postinstall    | `patch-package`                  | Aplica parches de dependencias si existen    |
 
-### iOS
+---
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+## 🔧 Requisitos
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+- **Node.js** >= 18.x
+- **React Native CLI**
+- **Xcode** (macOS, para iOS) o Android Studio
+- **Configuración de Mapbox con token de acceso**
 
-```sh
-bundle install
-```
+---
 
-Then, and every time you update your native dependencies, run:
+## 📌 Estado Actual
 
-```sh
-bundle exec pod install
-```
+- ✅ Geolocalización funcional.
+- ✅ Recolección de tokens mediante coordenadas.
+- ✅ Navegación e interfaces básicas.
+- 🕒 Realidad Aumentada (AR): *no disponible en esta versión beta*.
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+---
 
-```sh
-# Using npm
-npm run ios
+## 🧪 En desarrollo
 
-# OR using Yarn
-yarn ios
-```
+En futuras versiones:
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+- 🔜 Visualización de NFTs con Realidad Aumentada (ARKit / ARCore).
+- 🔜 Creación de NFTs desde la app móvil.
+- 🔜 Sistema de cacería de tesoros colaborativa.
+- 🔜 Marketplace de NFTs con zonas VIP.
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+---
 
-## Step 3: Modify your app
+## 📷 Icono del proyecto
 
-Now that you have successfully run the app, let's make changes!
+![Logo](https://github.com/MDKMauricioKlainbard/warc/blob/main/frontend/assets/logo-warc.png)
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+---
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+## 🤝 Contribuciones
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+Este es un proyecto en fase **beta cerrada**, por lo que aún no se aceptan pull requests externos. Si estás interesado en colaborar, escríbenos.
 
-## Congratulations! :tada:
+---
 
-You've successfully run and modified your React Native App. :partying_face:
+## 📄 Licencia
 
-### Now what?
+MIT License © 2025 - WalkARCoin Dev Team
 
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.

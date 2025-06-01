@@ -1,0 +1,42 @@
+version: "3.8"
+services:
+  mongo:
+    image: mongo:6
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE}
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+    networks:
+      - app-network
+    volumes:
+      - mongo-data:/data/db
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    environment:
+      - MONGO_URI=${MONGO_URI}
+      - NODE_ENV=${NODE_ENV}
+      - PORT=${PORT}
+      - JWT_SECRET=${JWT_SECRET}
+      - RPC_URL=${RPC_URL}
+      - PRIVATE_KEY=${PRIVATE_KEY}
+      - PRIVATE_DISTRIBUTION_KEY=${PRIVATE_DISTRIBUTION_KEY}
+      - TOKEN_ADDRESS=${TOKEN_ADDRESS}
+      - DISTRIBUTION_WALLET_ADDRESS=${DISTRIBUTION_WALLET_ADDRESS}
+    networks:
+      - app-network
+    ports:
+      - "3000:3000"
+
+volumes:
+  mongo-data:
+
+networks:
+  app-network:
+    driver: bridge
