@@ -3,6 +3,7 @@ import { distributedTokenModel } from "./distributed_token.model"
 import { userModel } from "../user/user.model"
 import { wallet } from "@server/config/wallet.config"
 import { parseEther } from "ethers"
+import Big from "big.js"
 
 /**
  * Genera coordenadas aleatorias dentro de un polígono y distribuye
@@ -44,28 +45,6 @@ export const generateRandomPoints = async (
         maxCoordinateSlots
     )
 
-    // Se distribuyen los tokens en forma aleatoria pero controlada entre los slots
-    const assignedPoints: number[] = []
-    let remainingPoints = totalPoints
-
-    for (let i = 0; i < totalCoordinateSlots; i++) {
-        const slotsLeft = totalCoordinateSlots - i
-        const maxPerPoint = Math.floor(totalPoints * 0.3)
-        const minPerPoint = 5
-
-        // Se limita la cantidad máxima y mínima por punto para evitar distribuciones injustas
-        const maxAllowed = Math.min(maxPerPoint, remainingPoints - (slotsLeft - 1) * minPerPoint)
-        const minAllowed = Math.max(minPerPoint, remainingPoints - (slotsLeft - 1) * maxPerPoint)
-
-        // Si es el último slot, se le asigna lo que queda; si no, se asigna aleatoriamente dentro del rango
-        const points = (i === totalCoordinateSlots - 1)
-            ? remainingPoints
-            : Math.floor(Math.random() * (maxAllowed - minAllowed + 1)) + minAllowed
-
-        assignedPoints.push(points)
-        remainingPoints -= points
-    }
-
     // Array donde se almacenarán las coordenadas válidas generadas con su cantidad asignada
     const generatedCoordinates: { coordinates: [number, number], quantity: number }[] = []
     let attempts = 0
@@ -82,14 +61,25 @@ export const generateRandomPoints = async (
             const newCoord: [number, number] = feature.geometry.coordinates as [number, number]
             const newRegister = {
                 coordinates: newCoord,
-                quantity: assignedPoints[generatedCoordinates.length]
+                quantity: 0
             }
-
-            // Se guarda tanto en el array como en la base de datos
             generatedCoordinates.push(newRegister)
-            distributedTokenModel.create(newRegister)
+            //distributedTokenModel.create(newRegister)
         }
     }
+
+    const integerPart = Math.floor(totalPoints)
+    const decimalPart = new Big(totalPoints).minus(integerPart).toNumber()
+    generatedCoordinates[0].quantity += decimalPart > 0 ? decimalPart : 0
+    let index;
+
+    for (let i = 0; i < integerPart; i++) {
+        index = Math.floor(Math.random() * generatedCoordinates.length);
+        generatedCoordinates[index].quantity += 1;
+    }
+
+    const validDistributionPoints = generatedCoordinates.filter((distributionPoint) => distributionPoint.quantity > 0)
+    await distributedTokenModel.insertMany(validDistributionPoints)
 
     return generatedCoordinates
 }
