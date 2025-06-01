@@ -23,6 +23,7 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 import TokenItem from '../../components/map/TokenItem';
+import {useDistributionPoints} from '../../hooks/UseDistributionPoints'; // Importar el nuevo hook
 
 // Configurar tu token de Mapbox aquí
 Mapbox.setAccessToken(
@@ -35,60 +36,59 @@ const {height: SCREEN_HEIGHT} = Dimensions.get('window');
 const SNAP_POINTS = {
   MINIMIZED: 0.15, // 15%
   MEDIUM: 0.45, // 45%
-  MAXIMIZED: 0.85, // 85%
+  MAXIMIZED: 0.80, // 85%
 };
 
 const MapScreen = ({onBack}) => {
-  const [userLocation, setUserLocation] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [currentSnapPoint, setCurrentSnapPoint] = useState('MEDIUM');
+
+  // Usar el nuevo hook para obtener puntos de distribución
+  const {
+    userLocation,
+    isLoading,
+    isMapReady,
+    distributionPoints,
+    isLoadingPoints,
+    pointsError,
+    hasPoints,
+    refreshDistributionPoints,
+    getPointDistanceInfo,
+    getNearbyPoints,
+  } = useDistributionPoints();
 
   // Animated value para la posición del bottom sheet
   const translateY = useSharedValue(SCREEN_HEIGHT * (1 - SNAP_POINTS.MEDIUM));
 
-  // Datos de ejemplo para los tokens cercanos
-  const tokensData = [
-    {
-      id: '1',
-      name: 'Token dorado',
-      distance: '10 m al norte',
-      icon: '🏆',
-      color: '#07415C',
-      status: 'En rango',
-      statusColor: '#E50B7B',
-    },
-    {
-      id: '2',
-      name: 'NFT arte digital',
-      distance: '320 m al este',
-      icon: '🎨',
-      color: '#07415C',
-      status: 'Caminar',
-      statusColor: '#9CA3AF',
-    },
-    {
-      id: '3',
-      name: 'Gema rara',
-      distance: '180 m al sur',
-      icon: '💎',
-      color: '#07415C',
-      status: 'Caminar',
-      statusColor: '#9CA3AF',
-    },
-    {
-      id: '4',
-      name: 'Tesoro raro',
-      distance: '450 m al oeste',
-      icon: '📦',
-      color: '#07415C',
-      status: 'Zona AR',
-      statusColor: '#06B6D4',
-    },
-  ];
+  // Convertir puntos de distribución al formato esperado por TokenItem
+  const tokensData = React.useMemo(() => {
+    if (!hasPoints || !userLocation) return [];
 
-  useEffect(() => {
-    requestLocationPermission();
-  }, []);
+    return distributionPoints.map((point, index) => {
+      const distanceInfo = getPointDistanceInfo(point);
+
+      return {
+        id: point.id,
+        name: `Token #${index + 1}`,
+        distance: distanceInfo.distanceText,
+        icon: point.quantity >= 5 ? '🏆' : point.quantity >= 3 ? '💎' : '📦',
+        color: '#07415C',
+        status:
+          distanceInfo.distance < 0.05
+            ? 'En rango'
+            : distanceInfo.distance < 0.5
+            ? 'Caminar'
+            : 'Zona AR',
+        statusColor:
+          distanceInfo.distance < 0.05
+            ? '#E50B7B'
+            : distanceInfo.distance < 0.5
+            ? '#9CA3AF'
+            : '#06B6D4',
+        coordinates: point.coordinates,
+        quantity: point.quantity,
+      };
+    });
+  }, [distributionPoints, userLocation, getPointDistanceInfo, hasPoints]);
 
   // Función para mover a un punto de ajuste específico
   const snapToPoint = point => {
@@ -163,60 +163,17 @@ const MapScreen = ({onBack}) => {
     },
   });
 
-  const requestLocationPermission = async () => {
-    if (Platform.OS === 'android') {
-      try {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-          {
-            title: 'Permiso de Ubicación',
-            message:
-              'Esta app necesita acceso a tu ubicación para mostrar el mapa',
-            buttonNeutral: 'Preguntar después',
-            buttonNegative: 'Cancelar',
-            buttonPositive: 'OK',
-          },
-        );
-        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-          getCurrentLocation();
-        } else {
-          setDefaultLocation();
-        }
-      } catch (err) {
-        console.warn(err);
-        setDefaultLocation();
-      }
-    } else {
-      getCurrentLocation();
-    }
-  };
-
-  const getCurrentLocation = () => {
-    Geolocation.getCurrentPosition(
-      position => {
-        setUserLocation([position.coords.longitude, position.coords.latitude]);
-        setIsLoading(false);
-      },
-      error => {
-        console.log('Error obteniendo ubicación:', error);
-        Alert.alert('Error', 'No se pudo obtener la ubicación');
-        setDefaultLocation();
-      },
-      {enableHighAccuracy: true, timeout: 15000, maximumAge: 10000},
-    );
-  };
-
-  const setDefaultLocation = () => {
-    setUserLocation([-99.1332, 19.4326]);
-    setIsLoading(false);
-  };
-
   const renderTokenItem = ({item}) => (
     <TokenItem
       item={item}
       onPress={token => {
         // Manejar la acción de ir al token
-        console.log('Ir a token:', token.name);
+        console.log(
+          'Ir a token:',
+          token.name,
+          'Coordenadas:',
+          token.coordinates,
+        );
       }}
     />
   );
@@ -233,7 +190,12 @@ const MapScreen = ({onBack}) => {
     return SCREEN_HEIGHT * SNAP_POINTS[currentSnapPoint];
   };
 
-  if (isLoading || !userLocation) {
+  // Función para refrescar los puntos
+  const handleRefresh = () => {
+    refreshDistributionPoints();
+  };
+
+  if (isLoading || !isMapReady) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#07415C" />
@@ -249,6 +211,19 @@ const MapScreen = ({onBack}) => {
         <TouchableOpacity style={styles.backButton} onPress={onBack}>
           <Icon
             name="arrow-left"
+            size={16}
+            color="#6B7280"
+            style={{zIndex: 20}}
+          />
+        </TouchableOpacity>
+
+        {/* Botón de refresh para los puntos */}
+        <TouchableOpacity
+          style={[styles.backButton, {marginLeft: 8}]}
+          onPress={handleRefresh}
+          disabled={isLoadingPoints}>
+          <Icon
+            name={isLoadingPoints ? 'spinner' : 'refresh'}
             size={16}
             color="#6B7280"
             style={{zIndex: 20}}
@@ -272,11 +247,26 @@ const MapScreen = ({onBack}) => {
             animationDuration={2000}
           />
 
+          {/* Marcador del usuario */}
           <Mapbox.PointAnnotation id="userLocation" coordinate={userLocation}>
             <View style={styles.userMarker}>
               <View style={styles.userMarkerInner} />
             </View>
           </Mapbox.PointAnnotation>
+
+          {/* Marcadores de puntos de distribución */}
+          {distributionPoints.map((point, index) => (
+            <Mapbox.PointAnnotation
+              key={point.id}
+              id={`distributionPoint_${point.id}`}
+              coordinate={point.coordinates}>
+              <View style={styles.distributionMarker}>
+                <Text style={styles.distributionMarkerText}>
+                  {point.quantity}
+                </Text>
+              </View>
+            </Mapbox.PointAnnotation>
+          ))}
 
           <TokenMarker animated={true} />
         </Mapbox.MapView>
@@ -317,21 +307,53 @@ const MapScreen = ({onBack}) => {
           <View style={styles.bottomSheetHeader}>
             <View style={styles.headerLeft}>
               <Icon name="map-marker" size={16} color="#E50B7B" />
-              <Text style={styles.headerTitle}>Tokens cercanos</Text>
+              <Text style={styles.headerTitle}>
+                Tokens cercanos {hasPoints && `(${distributionPoints.length})`}
+              </Text>
             </View>
+            {isLoadingPoints && (
+              <ActivityIndicator size="small" color="#07415C" />
+            )}
           </View>
+
+          {/* Mostrar error si existe */}
+          {pointsError && (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{pointsError}</Text>
+              <TouchableOpacity
+                style={styles.retryButton}
+                onPress={handleRefresh}>
+                <Text style={styles.retryButtonText}>Reintentar</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           {/* Lista de tokens */}
           {currentSnapPoint !== 'MINIMIZED' && (
             <View style={styles.tokensSection}>
-              <FlatList
-                data={tokensData}
-                renderItem={renderTokenItem}
-                keyExtractor={item => item.id}
-                showsVerticalScrollIndicator={false}
-                style={styles.tokensList}
-                contentContainerStyle={styles.tokensListContent}
-              />
+              {hasPoints ? (
+                <FlatList
+                  data={tokensData}
+                  renderItem={renderTokenItem}
+                  keyExtractor={item => item.id}
+                  showsVerticalScrollIndicator={false}
+                  style={styles.tokensList}
+                  contentContainerStyle={styles.tokensListContent}
+                />
+              ) : (
+                !isLoadingPoints &&
+                !pointsError && (
+                  <View style={styles.emptyContainer}>
+                    <Icon name="map-marker" size={48} color="#9CA3AF" />
+                    <Text style={styles.emptyText}>
+                      No hay tokens disponibles
+                    </Text>
+                    <Text style={styles.emptySubtext}>
+                      Los tokens aparecerán cuando estén disponibles en tu área
+                    </Text>
+                  </View>
+                )
+              )}
             </View>
           )}
         </View>
@@ -360,7 +382,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     paddingHorizontal: 16,
     paddingVertical: 12,
     position: 'absolute',
@@ -408,6 +430,26 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: '#07415C',
+  },
+  distributionMarker: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#E50B7B',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  distributionMarkerText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   mapControls: {
     position: 'absolute',
@@ -502,7 +544,50 @@ const styles = StyleSheet.create({
   tokensListContent: {
     paddingBottom: 20,
   },
-  
+  errorContainer: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#EF4444',
+  },
+  errorText: {
+    color: '#DC2626',
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  retryButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    marginTop: 8,
+    textAlign: 'center',
+    paddingHorizontal: 20,
+  },
 });
-
 export default MapScreen;
