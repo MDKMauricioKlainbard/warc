@@ -40,7 +40,7 @@ const SNAP_POINTS = {
 };
 
 const MapScreen = ({onBack}) => {
-  const [currentSnapPoint, setCurrentSnapPoint] = useState('MEDIUM');
+  const [currentSnapPoint, setCurrentSnapPoint] = useState('MINIMIZED');
 
   // Usar el nuevo hook para obtener puntos de distribución
   const {
@@ -57,7 +57,7 @@ const MapScreen = ({onBack}) => {
   } = useDistributionPoints();
 
   // Animated value para la posición del bottom sheet
-  const translateY = useSharedValue(SCREEN_HEIGHT * (1 - SNAP_POINTS.MEDIUM));
+  const translateY = useSharedValue(SCREEN_HEIGHT * (1 - SNAP_POINTS.MINIMIZED));
 
   // Convertir puntos de distribución al formato esperado por TokenItem
   const tokensData = React.useMemo(() => {
@@ -329,7 +329,7 @@ const MapScreen = ({onBack}) => {
           )}
 
           {/* Lista de tokens */}
-          {currentSnapPoint !== 'MINIMIZED' && (
+          {
             <View style={styles.tokensSection}>
               {hasPoints ? (
                 <FlatList
@@ -355,7 +355,7 @@ const MapScreen = ({onBack}) => {
                 )
               )}
             </View>
-          )}
+          }
         </View>
       </Animated.View>
     </View>
