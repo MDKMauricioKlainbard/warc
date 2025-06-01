@@ -78,8 +78,6 @@ En futuras versiones:
 
 ![Logo](https://github.com/MDKMauricioKlainbard/warc/blob/main/frontend/assets/logo-warc.png)
 
-> Reemplaza la URL de la imagen por tu logo o ícono deseado.
-
 ---
 
 ## 🤝 Contribuciones
