@@ -22,6 +22,7 @@ import Animated, {
   withSpring,
   runOnJS,
 } from 'react-native-reanimated';
+import TokenItem from '../../components/map/TokenItem';
 
 // Configurar tu token de Mapbox aquí
 Mapbox.setAccessToken(
@@ -32,9 +33,9 @@ const {height: SCREEN_HEIGHT} = Dimensions.get('window');
 
 // Definir los puntos de ajuste como porcentajes de la altura de la pantalla
 const SNAP_POINTS = {
-  MINIMIZED: 0.1, // 10%
+  MINIMIZED: 0.15, // 15%
   MEDIUM: 0.45, // 45%
-  MAXIMIZED: 0.9, // 90%
+  MAXIMIZED: 0.85, // 85%
 };
 
 const MapScreen = ({onBack}) => {
@@ -49,39 +50,39 @@ const MapScreen = ({onBack}) => {
   const tokensData = [
     {
       id: '1',
-      name: 'Token Dorado',
+      name: 'Token dorado',
       distance: '10 m al norte',
       icon: '🏆',
-      color: '#FCD34D',
+      color: '#07415C',
       status: 'En rango',
-      statusColor: '#10B981',
+      statusColor: '#E50B7B',
     },
     {
       id: '2',
-      name: 'NFT Arte Digital',
+      name: 'NFT arte digital',
       distance: '320 m al este',
       icon: '🎨',
-      color: '#A78BFA',
+      color: '#07415C',
       status: 'Caminar',
-      statusColor: '#F59E0B',
+      statusColor: '#9CA3AF',
     },
     {
       id: '3',
-      name: 'Gema Rara',
+      name: 'Gema rara',
       distance: '180 m al sur',
       icon: '💎',
-      color: '#34D399',
+      color: '#07415C',
       status: 'Caminar',
-      statusColor: '#F59E0B',
+      statusColor: '#9CA3AF',
     },
     {
       id: '4',
-      name: 'Tesoro Raro',
+      name: 'Tesoro raro',
       distance: '450 m al oeste',
       icon: '📦',
-      color: '#60A5FA',
+      color: '#07415C',
       status: 'Zona AR',
-      statusColor: '#3B82F6',
+      statusColor: '#06B6D4',
     },
   ];
 
@@ -120,23 +121,18 @@ const MapScreen = ({onBack}) => {
   // PanResponder para manejar los gestos de deslizamiento
   const panResponder = PanResponder.create({
     onMoveShouldSetPanResponder: (evt, gestureState) => {
-      // Solo responder a movimientos verticales significativos
       return (
         Math.abs(gestureState.dy) > 5 &&
         Math.abs(gestureState.dy) > Math.abs(gestureState.dx)
       );
     },
 
-    onPanResponderGrant: () => {
-      // Iniciar el gesto
-    },
+    onPanResponderGrant: () => {},
 
     onPanResponderMove: (evt, gestureState) => {
-      // Calcular nueva posición
       const baseY = SCREEN_HEIGHT * (1 - SNAP_POINTS[currentSnapPoint]);
       const newY = baseY + gestureState.dy;
 
-      // Limitar el rango de movimiento
       const minY = SCREEN_HEIGHT * (1 - SNAP_POINTS.MAXIMIZED);
       const maxY = SCREEN_HEIGHT * (1 - SNAP_POINTS.MINIMIZED);
 
@@ -144,21 +140,17 @@ const MapScreen = ({onBack}) => {
     },
 
     onPanResponderRelease: (evt, gestureState) => {
-      // Encontrar el punto de ajuste más cercano basado en la posición final
       const finalY = translateY.value;
       const closestPoint = findClosestSnapPoint(finalY);
 
-      // Considerar la velocidad del gesto para decisiones más intuitivas
       if (Math.abs(gestureState.vy) > 0.5) {
         if (gestureState.vy > 0) {
-          // Deslizamiento hacia abajo
           if (currentSnapPoint === 'MAXIMIZED') {
             snapToPoint('MEDIUM');
           } else if (currentSnapPoint === 'MEDIUM') {
             snapToPoint('MINIMIZED');
           }
         } else {
-          // Deslizamiento hacia arriba
           if (currentSnapPoint === 'MINIMIZED') {
             snapToPoint('MEDIUM');
           } else if (currentSnapPoint === 'MEDIUM') {
@@ -166,7 +158,6 @@ const MapScreen = ({onBack}) => {
           }
         }
       } else {
-        // Sin velocidad significativa, usar el punto más cercano
         snapToPoint(closestPoint);
       }
     },
@@ -216,28 +207,18 @@ const MapScreen = ({onBack}) => {
   };
 
   const setDefaultLocation = () => {
-    // Ubicación por defecto (México DF)
     setUserLocation([-99.1332, 19.4326]);
     setIsLoading(false);
   };
 
   const renderTokenItem = ({item}) => (
-    <View style={styles.tokenItem}>
-      <View style={[styles.tokenIcon, {backgroundColor: item.color + '20'}]}>
-        <Text style={styles.tokenEmoji}>{item.icon}</Text>
-      </View>
-      <View style={styles.tokenInfo}>
-        <Text style={styles.tokenName}>{item.name}</Text>
-        <Text style={styles.tokenDistance}>📍 {item.distance}</Text>
-        <Text style={[styles.tokenStatus, {color: item.statusColor}]}>
-          ⚡ {item.status}
-        </Text>
-      </View>
-      <TouchableOpacity
-        style={[styles.irButton, {backgroundColor: item.statusColor}]}>
-        <Text style={styles.irButtonText}>IR</Text>
-      </TouchableOpacity>
-    </View>
+    <TokenItem
+      item={item}
+      onPress={token => {
+        // Manejar la acción de ir al token
+        console.log('Ir a token:', token.name);
+      }}
+    />
   );
 
   // Estilo animado para el bottom sheet
@@ -255,7 +236,7 @@ const MapScreen = ({onBack}) => {
   if (isLoading || !userLocation) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4F46E5" />
+        <ActivityIndicator size="large" color="#07415C" />
         <Text style={styles.loadingText}>Cargando mapa...</Text>
       </View>
     );
@@ -291,7 +272,6 @@ const MapScreen = ({onBack}) => {
             animationDuration={2000}
           />
 
-          {/* Marcador de ubicación del usuario */}
           <Mapbox.PointAnnotation id="userLocation" coordinate={userLocation}>
             <View style={styles.userMarker}>
               <View style={styles.userMarkerInner} />
@@ -333,28 +313,17 @@ const MapScreen = ({onBack}) => {
 
         {/* Contenido del bottom sheet */}
         <View style={[styles.bottomSheetContent, {height: getContentHeight()}]}>
-          {/* Botón AR - Solo visible en MEDIUM y MAXIMIZED */}
-          {(currentSnapPoint === 'MEDIUM' ||
-            currentSnapPoint === 'MAXIMIZED') && (
-            <TouchableOpacity style={styles.arButton}>
-              <Icon
-                name="camera"
-                size={16}
-                color="#FFFFFF"
-                style={{marginRight: 8}}
-              />
-              <Text style={styles.arButtonText}>ABRIR CÁMARA AR</Text>
-            </TouchableOpacity>
-          )}
-
-          {/* Tokens Cercanos */}
-          <View style={styles.tokensSection}>
-            <View style={styles.tokensSectionHeader}>
-              <View style={styles.redDot} />
-              <Text style={styles.sectionTitle}>Tokens Cercanos</Text>
+          {/* Header del bottom sheet */}
+          <View style={styles.bottomSheetHeader}>
+            <View style={styles.headerLeft}>
+              <Icon name="map-marker" size={16} color="#E50B7B" />
+              <Text style={styles.headerTitle}>Tokens cercanos</Text>
             </View>
+          </View>
 
-            {currentSnapPoint !== 'MINIMIZED' && (
+          {/* Lista de tokens */}
+          {currentSnapPoint !== 'MINIMIZED' && (
+            <View style={styles.tokensSection}>
               <FlatList
                 data={tokensData}
                 renderItem={renderTokenItem}
@@ -363,8 +332,8 @@ const MapScreen = ({onBack}) => {
                 style={styles.tokensList}
                 contentContainerStyle={styles.tokensListContent}
               />
-            )}
-          </View>
+            </View>
+          )}
         </View>
       </Animated.View>
     </View>
@@ -398,16 +367,19 @@ const styles = StyleSheet.create({
     top: 20,
     zIndex: 999,
     paddingTop: Platform.OS === 'ios' ? 50 : 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   mapContainer: {
     flex: 1,
@@ -422,7 +394,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: '#FFFFFF',
     borderWidth: 3,
-    borderColor: '#4F46E5',
+    borderColor: '#07415C',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000000',
@@ -435,7 +407,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#4F46E5',
+    backgroundColor: '#07415C',
   },
   mapControls: {
     position: 'absolute',
@@ -480,68 +452,49 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     shadowColor: '#000000',
-    shadowOffset: {width: 0, height: -4},
+    shadowOffset: {width: 0, height: -8},
     shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowRadius: 16,
     elevation: 8,
   },
   bottomSheetHandle: {
-    width: 40,
-    height: 4,
-    backgroundColor: '#D1D5DB',
-    borderRadius: 2,
+    width: 48,
+    height: 5,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 3,
     alignSelf: 'center',
     marginTop: 12,
     marginBottom: 8,
   },
   bottomSheetContent: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingBottom: 32,
   },
-  arButton: {
-    backgroundColor: '#4F46E5',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 12,
+  bottomSheetHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 24,
-    shadowColor: '#4F46E5',
-    shadowOffset: {width: 0, height: 4},
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    marginBottom: 16,
   },
-  arButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+    marginLeft: 8,
   },
   tokensSection: {
     flex: 1,
-  },
-  tokensSectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  redDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#EF4444',
-    marginRight: 8,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#111827',
   },
   tokensList: {
     flex: 1,
@@ -549,58 +502,7 @@ const styles = StyleSheet.create({
   tokensListContent: {
     paddingBottom: 20,
   },
-  tokenItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  tokenIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  tokenEmoji: {
-    fontSize: 20,
-  },
-  tokenInfo: {
-    flex: 1,
-  },
-  tokenName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 4,
-  },
-  tokenDistance: {
-    fontSize: 14,
-    color: '#6B7280',
-    fontWeight: '500',
-    marginBottom: 2,
-  },
-  tokenStatus: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  irButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    minWidth: 44,
-    alignItems: 'center',
-  },
-  irButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
+  
 });
 
 export default MapScreen;
