@@ -2,7 +2,7 @@
     "compilerOptions": {
         "resolveJsonModule": true,
         "target": "ES2020",
-        "module": "ESNext",
+        "module": "commonjs",
         "rootDir": "server",
         "moduleResolution": "node",
         "outDir": "dist",

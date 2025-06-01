@@ -1,0 +1,9 @@
+.env
+.prod.env
+docker-compose-dev.yml
+docker-compose-prod.yml
+Dockerfile
+node_modules
+README.md
+run_dev.sh
+build_prod.sh
