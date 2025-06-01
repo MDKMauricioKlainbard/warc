@@ -6,16 +6,16 @@ import Mapbox from '@rnmapbox/maps';
 import AreaSelectorHeader from '../../components/area-selector/AreaSelectorHeader';
 import AreaSelectorMap from '../../components/area-selector/AreaSelectorMap';
 import AreaSelectorBottomPanel from '../../components/area-selector/AreaSelectorBottomPanel';
+import TokenSelectionModal from '../../components/area-selector/TokenSelectionModal';
 
 // Hook personalizado y estilos
 import {useAreaSelector} from '../../hooks/useAreaSelector';
 import {AreaSelectorStyles} from '../../styles/AreaSelectorStyles';
 
-
-const AreaSelectorScreen = ({onBack, onNext}) => {
+const AreaSelectorScreen = ({onBack}) => {
   const [animatedValue] = useState(new Animated.Value(0));
 
-  // Hook personalizado con toda la lógica
+  // Hook personalizado con toda la lógica actualizada
   const {
     userLocation,
     isLoading,
@@ -26,11 +26,16 @@ const AreaSelectorScreen = ({onBack, onNext}) => {
     linesGeoJSON,
     isSubmitting,
     submitError,
+    showTokenModal, // Nuevo estado
+    successMessage, // Nuevo estado para mensaje de éxito
     handleMapPress,
     removePoint,
     removeLastPoint,
     clearAllPoints,
-    handleNext,
+    openTokenModal, // Nueva función
+    closeTokenModal, // Nueva función
+    handleTokenSubmit, // Nueva función
+    clearSuccessMessage, // Nueva función
     getCurrentLocation,
     clearSubmitError,
   } = useAreaSelector();
@@ -56,6 +61,22 @@ const AreaSelectorScreen = ({onBack, onNext}) => {
 
     startPulseAnimation();
   }, [animatedValue]);
+
+  // Handler para confirmar tokens y proceder
+  const handleTokenConfirm = async tokenAmount => {
+    try {
+      // Ejecutar la función de envío de tokens
+      const result = await handleTokenSubmit(tokenAmount);
+
+      if (result && result.success) {
+        console.log('Tokens distribuidos exitosamente:', result);
+        // El hook ya maneja la limpieza de puntos y muestra el mensaje de éxito
+      }
+    } catch (error) {
+      // Los errores ya se manejan en handleTokenSubmit
+      console.log('Error manejado en handleTokenSubmit:', error.message);
+    }
+  };
 
   // Pantalla de carga
   if (!isMapReady) {
@@ -100,15 +121,25 @@ const AreaSelectorScreen = ({onBack, onNext}) => {
         onUndo={removeLastPoint}
       />
 
-      {/* Panel inferior */}
+      {/* Panel inferior actualizado */}
       <AreaSelectorBottomPanel
         selectedPoints={selectedPoints}
         canProceed={canProceed}
-        isSubmitting={isSubmitting}
         submitError={submitError}
+        successMessage={successMessage} // Nueva prop
         onPointRemove={removePoint}
-        onNext={() => handleNext(onNext)}
+        onOpenTokenModal={openTokenModal}
         onClearError={clearSubmitError}
+        onClearSuccess={clearSuccessMessage} // Nueva prop
+      />
+
+      {/* Modal de selección de tokens */}
+      <TokenSelectionModal
+        visible={showTokenModal}
+        selectedPoints={selectedPoints}
+        onConfirm={handleTokenConfirm}
+        onCancel={closeTokenModal}
+        isSubmitting={isSubmitting}
       />
     </View>
   );

@@ -4,7 +4,6 @@ import Geolocation from '@react-native-community/geolocation';
 import axios from 'axios';
 import config from '../../config';
 
-
 const API_BASE_URL = config.API_URL;
 
 export const useAreaSelector = () => {
@@ -13,12 +12,14 @@ export const useAreaSelector = () => {
   const [selectedPoints, setSelectedPoints] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
+  const [showTokenModal, setShowTokenModal] = useState(false); // Nuevo estado
+  const [successMessage, setSuccessMessage] = useState(null); // Nuevo estado para éxito
 
   useEffect(() => {
     requestLocationPermission();
   }, []);
 
-  // Funciones de ubicación
+  // Funciones de ubicación (sin cambios)
   const requestLocationPermission = async () => {
     if (Platform.OS === 'android') {
       try {
@@ -63,12 +64,11 @@ export const useAreaSelector = () => {
   };
 
   const setDefaultLocation = () => {
-    // Ubicación por defecto (México DF)
     setUserLocation([-99.1332, 19.4326]);
     setIsLoading(false);
   };
 
-  // Funciones de gestión de puntos
+  // Funciones de gestión de puntos (sin cambios)
   const handleMapPress = feature => {
     try {
       if (selectedPoints.length >= 6) {
@@ -86,7 +86,6 @@ export const useAreaSelector = () => {
 
       const coordinates = feature.geometry.coordinates;
 
-      // Validar que las coordenadas sean números válidos
       if (
         !Array.isArray(coordinates) ||
         coordinates.length !== 2 ||
@@ -114,7 +113,6 @@ export const useAreaSelector = () => {
   const removePoint = pointId => {
     setSelectedPoints(prev => {
       const filtered = prev.filter(point => point.id !== pointId);
-      // Reordenar los números después de eliminar
       return filtered.map((point, index) => ({
         ...point,
         order: index + 1,
@@ -146,7 +144,8 @@ export const useAreaSelector = () => {
     );
   };
 
-  const handleNext = async onNext => {
+  // Nueva función para abrir el modal
+  const openTokenModal = () => {
     if (selectedPoints.length < 3) {
       Alert.alert(
         'Puntos insuficientes',
@@ -154,9 +153,24 @@ export const useAreaSelector = () => {
       );
       return;
     }
+    setShowTokenModal(true);
+  };
+
+  // Nueva función para cerrar el modal
+  const closeTokenModal = () => {
+    setShowTokenModal(false);
+  };
+
+  // Nueva función para limpiar mensaje de éxito
+  const clearSuccessMessage = () => {
+    setSuccessMessage(null);
+  };
+
+  // Función actualizada para enviar con cantidad de tokens
+  const handleTokenSubmit = async tokenAmount => {
     const lastPoint = {
       id: Date.now().toString(),
-      coordinates: selectedPoints[0].coordinates, // Repetir el primer punto para cerrar el polígono
+      coordinates: selectedPoints[0].coordinates,
       order: selectedPoints.length + 1,
     };
     const updatedPoints = [...selectedPoints, lastPoint];
@@ -164,20 +178,22 @@ export const useAreaSelector = () => {
       point.coordinates[0],
       point.coordinates[1],
     ]);
+
     setIsSubmitting(true);
     setSubmitError(null);
+
     try {
       console.log(
         'Enviando polígono:',
         `${API_BASE_URL}/api/distributed-token/in-polygon`,
-        resPoints,
+        {totalPoints: tokenAmount, polygonCoordinates: resPoints},
       );
 
       const response = await axios.post(
         `${API_BASE_URL}/api/distributed-token/in-polygon`,
-        {totalPoints: 10, polygonCoordinates: resPoints},
+        {totalPoints: tokenAmount, polygonCoordinates: resPoints},
         {
-          timeout: 30000, // 30 segundos
+          timeout: 30000,
           headers: {
             'Content-Type': 'application/json',
           },
@@ -186,8 +202,27 @@ export const useAreaSelector = () => {
 
       console.log('Respuesta del servidor:', response.data);
 
-      // Llamar onNext con los datos originales y la respuesta del servidor
-      onNext && onNext(selectedPoints, response.data);
+      // Cerrar modal
+      setShowTokenModal(false);
+
+      // Limpiar puntos seleccionados
+      setSelectedPoints([]);
+
+      // Mostrar mensaje de éxito
+      setSuccessMessage(
+        `¡Éxito! ${tokenAmount} tokens distribuidos correctamente en el área.`,
+      );
+
+      // Auto-ocultar mensaje de éxito después de 5 segundos
+      setTimeout(() => {
+        setSuccessMessage(null);
+      }, 5000);
+
+      return {
+        success: true,
+        selectedPoints,
+        serverResponse: response.data,
+      };
     } catch (error) {
       console.error('Error al enviar área:', error);
 
@@ -196,13 +231,11 @@ export const useAreaSelector = () => {
       if (error.code === 'ECONNABORTED') {
         errorMessage = 'Tiempo de espera agotado. Verifica tu conexión.';
       } else if (error.response) {
-        // Error del servidor (4xx, 5xx)
         errorMessage = `Error del servidor: ${error.response.status}`;
         if (error.response.data?.message) {
           errorMessage += ` - ${error.response.data.message}`;
         }
       } else if (error.request) {
-        // Error de red
         errorMessage =
           'Error de conexión. Verifica que el servidor esté disponible.';
       } else {
@@ -210,12 +243,15 @@ export const useAreaSelector = () => {
       }
 
       setSubmitError(errorMessage);
+
+      // Lanzar error para que sea capturado en el componente principal
+      throw new Error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // GeoJSON para el polígono
+  // GeoJSON para el polígono (sin cambios)
   const polygonGeoJSON = useMemo(() => {
     if (selectedPoints.length < 3) return null;
 
@@ -233,7 +269,6 @@ export const useAreaSelector = () => {
         return point.coordinates;
       });
 
-      // Cerrar el polígono agregando el primer punto al final
       coordinates.push(selectedPoints[0].coordinates);
 
       return {
@@ -249,7 +284,7 @@ export const useAreaSelector = () => {
     }
   }, [selectedPoints]);
 
-  // GeoJSON para las líneas
+  // GeoJSON para las líneas (sin cambios)
   const linesGeoJSON = useMemo(() => {
     if (selectedPoints.length < 2) return null;
 
@@ -266,7 +301,6 @@ export const useAreaSelector = () => {
       });
 
       if (selectedPoints.length >= 3) {
-        // Si hay 3 o más puntos, cerrar el polígono
         coordinates.push(selectedPoints[0].coordinates);
       }
 
@@ -302,13 +336,18 @@ export const useAreaSelector = () => {
     linesGeoJSON,
     isSubmitting,
     submitError,
+    showTokenModal, // Nuevo estado exportado
+    successMessage, // Nuevo estado exportado
 
     // Acciones
     handleMapPress,
     removePoint,
     removeLastPoint,
     clearAllPoints,
-    handleNext,
+    openTokenModal, // Nueva función
+    closeTokenModal, // Nueva función
+    handleTokenSubmit, // Nueva función
+    clearSuccessMessage, // Nueva función
     getCurrentLocation,
     clearSubmitError: () => setSubmitError(null),
   };
