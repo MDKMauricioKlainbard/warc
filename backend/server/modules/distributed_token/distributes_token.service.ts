@@ -3,96 +3,109 @@ import { distributedTokenModel } from "./distributed_token.model"
 import { userModel } from "../user/user.model"
 import { wallet } from "@server/config/wallet.config"
 import { parseEther } from "ethers"
+import Big from "big.js"
 
 /**
- * Genera coordenadas aleatorias dentro de un polígono y distribuye
- * de manera aleatoria una cantidad total de tokens entre ellas.
+ * Genera coordenadas aleatorias dentro de un polígono y distribuye aleatoriamente una cantidad total de tokens entre ellas.
  * 
- * @param {number} totalPoints - Cantidad total de tokens a distribuir.
- * @param {number[][]} polygonCoordinates - Coordenadas del polígono donde se deben generar los puntos. 
- * El array debe representar un polígono cerrado (mínimo 4 puntos con el último igual al primero).
+ * Este método:
+ * - Calcula una cantidad aleatoria de ubicaciones (slots de distribución) dentro del polígono.
+ * - Genera coordenadas aleatorias dentro del área definida por un bounding box del polígono.
+ * - Verifica que cada punto generado esté realmente dentro del polígono.
+ * - Luego distribuye `totalTokens` de forma aleatoria entre los puntos válidos:
+ *    - Por cada unidad entera, se lanza un dado para asignar 1 token a un punto aleatorio.
+ *    - Si hay parte decimal, se asigna directamente al primer punto generado.
+ * 
+ * @param {number} totalTokens - Cantidad total (entera o decimal) de tokens a distribuir.
+ * @param {number[][]} polygonCoordinates - Coordenadas que definen el polígono (el último punto debe ser igual al primero).
  * 
  * @returns {Promise<{coordinates: [number, number], quantity: number}[]>} 
- * Retorna un array de objetos, cada uno con coordenadas geográficas y una cantidad de tokens asignada.
+ * Un arreglo de objetos, cada uno representando una coordenada y la cantidad de tokens asignados.
  * 
- * @throws {Error} Si la cantidad total de tokens es negativa o el polígono no tiene suficientes vértices.
+ * @throws {Error} Si la cantidad de tokens es negativa o el polígono tiene menos de 4 vértices.
  */
 export const generateRandomPoints = async (
-    totalPoints: number,
+    totalTokens: number,
     polygonCoordinates: number[][]
 ): Promise<{
     coordinates: [number, number],
     quantity: number,
 }[]> => {
-    // Validaciones iniciales
-    if (totalPoints < 0) {
-        throw new Error("La cantidad debe ser mayor a 0")
+    // Validación de que la cantidad no sea negativa
+    if (totalTokens < 0) {
+        throw new Error("La cantidad total de tokens debe ser mayor o igual a 0.");
     }
+
+    // Validación de que el polígono esté bien definido (mínimo 4 puntos, último punto igual al primero)
     if (polygonCoordinates.length < 4) {
-        throw new Error("El polígono debe tener al menos 4 puntos.")
+        throw new Error("El polígono debe tener al menos 4 vértices (incluyendo el cierre del mismo).");
     }
 
-    // Se crea un polígono válido y se obtiene su bounding box para limitar el área de búsqueda
-    const regionPolygon = polygon([polygonCoordinates])
-    const boundingBox = bbox(regionPolygon)
+    // Se crea un polígono válido a partir de las coordenadas
+    const polygonRegion = polygon([polygonCoordinates]);
 
-    // Definimos la cantidad de coordenadas diferentes que se van a generar (slots)
-    const maxCoordinateSlots = 20
-    const minCoordinateSlots = 5
-    const totalCoordinateSlots = Math.min(
-        Math.max(Math.floor(Math.random() * totalPoints), minCoordinateSlots),
-        maxCoordinateSlots
-    )
+    // Se calcula el bounding box para limitar la región donde se buscarán puntos aleatorios
+    const bounds = bbox(polygonRegion);
 
-    // Se distribuyen los tokens en forma aleatoria pero controlada entre los slots
-    const assignedPoints: number[] = []
-    let remainingPoints = totalPoints
+    // Determina cuántos puntos de distribución se generarán
+    const minSlots = 5;
+    const maxSlots = 20;
+    const slotsCount = Math.min(
+        Math.max(Math.floor(Math.random() * totalTokens), minSlots),
+        maxSlots
+    );
 
-    for (let i = 0; i < totalCoordinateSlots; i++) {
-        const slotsLeft = totalCoordinateSlots - i
-        const maxPerPoint = Math.floor(totalPoints * 0.3)
-        const minPerPoint = 5
+    // Aquí almacenaremos los puntos válidos con su cantidad inicial (0 tokens)
+    const distributionPoints: { coordinates: [number, number], quantity: number }[] = [];
+    let generationAttempts = 0;
 
-        // Se limita la cantidad máxima y mínima por punto para evitar distribuciones injustas
-        const maxAllowed = Math.min(maxPerPoint, remainingPoints - (slotsLeft - 1) * minPerPoint)
-        const minAllowed = Math.max(minPerPoint, remainingPoints - (slotsLeft - 1) * maxPerPoint)
+    // Genera coordenadas aleatorias dentro del bounding box
+    // y filtra aquellas que estén realmente dentro del polígono
+    while (distributionPoints.length < slotsCount && generationAttempts < 1000) {
+        generationAttempts++;
 
-        // Si es el último slot, se le asigna lo que queda; si no, se asigna aleatoriamente dentro del rango
-        const points = (i === totalCoordinateSlots - 1)
-            ? remainingPoints
-            : Math.floor(Math.random() * (maxAllowed - minAllowed + 1)) + minAllowed
+        const randomFeature = randomPoint(1, { bbox: bounds }).features[0];
 
-        assignedPoints.push(points)
-        remainingPoints -= points
-    }
+        // Validamos que el punto esté dentro del polígono
+        const isInsidePolygon = pointToPolygonDistance(randomFeature, polygonRegion) < 0;
 
-    // Array donde se almacenarán las coordenadas válidas generadas con su cantidad asignada
-    const generatedCoordinates: { coordinates: [number, number], quantity: number }[] = []
-    let attempts = 0
+        if (isInsidePolygon) {
+            const coord: [number, number] = randomFeature.geometry.coordinates as [number, number];
 
-    // Se generan coordenadas aleatorias dentro del bounding box y se filtran las que están dentro del polígono
-    while (generatedCoordinates.length < totalCoordinateSlots && attempts < 1000) {
-        attempts++
-
-        const point = randomPoint(1, { bbox: boundingBox })
-        const feature = point.features[0]
-
-        // Se verifica que el punto esté dentro del polígono
-        if (pointToPolygonDistance(feature, regionPolygon) < 0) {
-            const newCoord: [number, number] = feature.geometry.coordinates as [number, number]
-            const newRegister = {
-                coordinates: newCoord,
-                quantity: assignedPoints[generatedCoordinates.length]
-            }
-
-            // Se guarda tanto en el array como en la base de datos
-            generatedCoordinates.push(newRegister)
-            distributedTokenModel.create(newRegister)
+            distributionPoints.push({
+                coordinates: coord,
+                quantity: 0
+            });
         }
     }
 
-    return generatedCoordinates
-}
+    // Separamos la parte entera y decimal de los tokens totales
+    const wholeTokens = Math.floor(totalTokens);
+    // El cálculo con decimales se ve afectado por la precisión flotante de los números en JS.
+    // La parte fraccionaria debe calcularse con una librería de alta precisión:
+    const fractionalTokens = new Big(totalTokens).minus(wholeTokens).toNumber();
+
+    // Si hay parte decimal, se asigna al primer punto
+    if (fractionalTokens > 0) {
+        distributionPoints[0].quantity += fractionalTokens;
+    }
+
+    // Repartimos los tokens enteros uno por uno, aleatoriamente
+    for (let i = 0; i < wholeTokens; i++) {
+        const selectedIndex = Math.floor(Math.random() * distributionPoints.length);
+        distributionPoints[selectedIndex].quantity += 1;
+    }
+
+    // Filtramos los puntos que recibieron al menos una fracción de token
+    const pointsWithTokens = distributionPoints.filter(p => p.quantity > 0);
+
+    // Guardamos los puntos en la base de datos
+    await distributedTokenModel.insertMany(pointsWithTokens);
+
+    // Retornamos todos los puntos generados (con o sin tokens asignados)
+    return distributionPoints;
+};
+
 
 /**
  * Obtiene todos los puntos de distribución generados previamente.
