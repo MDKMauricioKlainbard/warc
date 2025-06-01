@@ -1,22 +1,17 @@
 import React from 'react';
-import {
-  View,
-  TouchableOpacity,
-  Text,
-  Alert,
-  ActivityIndicator,
-} from 'react-native';
+import {View, TouchableOpacity, Text, Alert} from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import {AreaSelectorStyles} from '../../styles/AreaSelectorStyles';
 
 const AreaSelectorBottomPanel = ({
   selectedPoints,
   canProceed,
-  isSubmitting,
   submitError,
+  successMessage, // Nueva prop
   onPointRemove,
-  onNext,
+  onOpenTokenModal, // Nueva prop para abrir el modal
   onClearError,
+  onClearSuccess, // Nueva prop
 }) => {
   const handlePointChipPress = point => {
     Alert.alert(
@@ -38,6 +33,21 @@ const AreaSelectorBottomPanel = ({
 
   return (
     <View style={AreaSelectorStyles.bottomPanel}>
+      {/* Success Message */}
+      {successMessage && (
+        <View style={AreaSelectorStyles.successContainer}>
+          <View style={AreaSelectorStyles.successContent}>
+            <Icon name="check-circle" size={16} color="#10B981" />
+            <Text style={AreaSelectorStyles.successText}>{successMessage}</Text>
+          </View>
+          <TouchableOpacity
+            style={AreaSelectorStyles.successCloseButton}
+            onPress={onClearSuccess}>
+            <Icon name="times" size={12} color="#10B981" />
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Error Message */}
       {submitError && (
         <View style={AreaSelectorStyles.errorContainer}>
@@ -63,8 +73,7 @@ const AreaSelectorBottomPanel = ({
               <TouchableOpacity
                 key={point.id}
                 style={AreaSelectorStyles.pointChip}
-                onPress={() => handlePointChipPress(point)}
-                disabled={isSubmitting}>
+                onPress={() => handlePointChipPress(point)}>
                 <Text style={AreaSelectorStyles.pointChipText}>
                   {index + 1}
                 </Text>
@@ -85,37 +94,23 @@ const AreaSelectorBottomPanel = ({
           AreaSelectorStyles.nextButton,
           {
             backgroundColor: canProceed ? '#4F46E5' : '#D1D5DB',
-            opacity: isSubmitting ? 0.7 : 1,
           },
         ]}
-        onPress={onNext}
+        onPress={onOpenTokenModal} // Cambiado para abrir el modal
         disabled={!canProceed}>
-        {isSubmitting && (
-          <ActivityIndicator
-            size="small"
-            color="#FFFFFF"
-            style={{marginRight: 8}}
-          />
-        )}
         <Text
           style={[
             AreaSelectorStyles.nextButtonText,
             {color: canProceed ? '#FFFFFF' : '#9CA3AF'},
           ]}>
-          {isSubmitting
-            ? 'Enviando...'
-            : `Siguiente ${
-                canProceed ? `(${selectedPoints.length} puntos)` : ''
-              }`}
+          {`Continuar ${canProceed ? `(${selectedPoints.length} puntos)` : ''}`}
         </Text>
-        {!isSubmitting && (
-          <Icon
-            name="arrow-right"
-            size={16}
-            color={canProceed ? '#FFFFFF' : '#9CA3AF'}
-            style={{marginLeft: 8}}
-          />
-        )}
+        <Icon
+          name="arrow-right"
+          size={16}
+          color={canProceed ? '#FFFFFF' : '#9CA3AF'}
+          style={{marginLeft: 8}}
+        />
       </TouchableOpacity>
     </View>
   );
