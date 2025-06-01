@@ -22,8 +22,9 @@ import Animated, {
   withSpring,
   runOnJS,
 } from 'react-native-reanimated';
+import TokenCollectionModal from '../../components/map/TokenCollectionModal';
+import {useDistributionPoints} from '../../hooks/UseDistributionPoints';
 import TokenItem from '../../components/map/TokenItem';
-import {useDistributionPoints} from '../../hooks/UseDistributionPoints'; // Importar el nuevo hook
 
 // Configurar tu token de Mapbox aquí
 Mapbox.setAccessToken(
@@ -36,11 +37,13 @@ const {height: SCREEN_HEIGHT} = Dimensions.get('window');
 const SNAP_POINTS = {
   MINIMIZED: 0.15, // 15%
   MEDIUM: 0.45, // 45%
-  MAXIMIZED: 0.80, // 85%
+  MAXIMIZED: 0.8, // 85%
 };
 
 const MapScreen = ({onBack}) => {
   const [currentSnapPoint, setCurrentSnapPoint] = useState('MINIMIZED');
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedToken, setSelectedToken] = useState(null);
 
   // Usar el nuevo hook para obtener puntos de distribución
   const {
@@ -54,10 +57,58 @@ const MapScreen = ({onBack}) => {
     refreshDistributionPoints,
     getPointDistanceInfo,
     getNearbyPoints,
+    calculateDistance,
   } = useDistributionPoints();
 
   // Animated value para la posición del bottom sheet
-  const translateY = useSharedValue(SCREEN_HEIGHT * (1 - SNAP_POINTS.MINIMIZED));
+  const translateY = useSharedValue(
+    SCREEN_HEIGHT * (1 - SNAP_POINTS.MINIMIZED),
+  );
+
+  // Función para determinar si un punto está dentro del rango de 10 metros
+  const isPointInRange = point => {
+    if (!userLocation || !point.coordinates) return false;
+
+    const [userLng, userLat] = userLocation;
+    const [pointLng, pointLat] = point.coordinates;
+
+    const distance = calculateDistance(userLat, userLng, pointLat, pointLng);
+    return distance <= 0.01; // 10 metros = 0.01 km
+  };
+
+  // Función para manejar el press en TokenMarker
+  const handleTokenPress = tokenInfo => {
+    const pointData = distributionPoints.find(
+      point => point.id === tokenInfo.id,
+    );
+    if (pointData) {
+      const distanceInfo = getPointDistanceInfo(pointData);
+      setSelectedToken({
+        id: pointData.id,
+        name: `Token #${distributionPoints.indexOf(pointData) + 1}`,
+        quantity: pointData.quantity,
+        distance: distanceInfo.distanceText,
+        coordinates: pointData.coordinates,
+      });
+      setModalVisible(true);
+    }
+  };
+
+  // Función para manejar el éxito en la recolección
+  const handleCollectionSuccess = tokenData => {
+    // Refrescar los puntos de distribución
+    refreshDistributionPoints();
+    console.log('Token recolectado exitosamente:', tokenData);
+  };
+
+  // Separar puntos en rango y fuera de rango
+  const pointsInRange = React.useMemo(() => {
+    return distributionPoints.filter(point => isPointInRange(point));
+  }, [distributionPoints, userLocation, calculateDistance]);
+
+  const pointsOutOfRange = React.useMemo(() => {
+    return distributionPoints.filter(point => !isPointInRange(point));
+  }, [distributionPoints, userLocation, calculateDistance]);
 
   // Convertir puntos de distribución al formato esperado por TokenItem
   const tokensData = React.useMemo(() => {
@@ -73,13 +124,13 @@ const MapScreen = ({onBack}) => {
         icon: point.quantity >= 5 ? '🏆' : point.quantity >= 3 ? '💎' : '📦',
         color: '#07415C',
         status:
-          distanceInfo.distance < 0.05
+          distanceInfo.distance < 0.01
             ? 'En rango'
             : distanceInfo.distance < 0.5
             ? 'Caminar'
             : 'Zona AR',
         statusColor:
-          distanceInfo.distance < 0.05
+          distanceInfo.distance < 0.01
             ? '#E50B7B'
             : distanceInfo.distance < 0.5
             ? '#9CA3AF'
@@ -167,7 +218,6 @@ const MapScreen = ({onBack}) => {
     <TokenItem
       item={item}
       onPress={token => {
-        // Manejar la acción de ir al token
         console.log(
           'Ir a token:',
           token.name,
@@ -254,10 +304,28 @@ const MapScreen = ({onBack}) => {
             </View>
           </Mapbox.PointAnnotation>
 
-          {/* Marcadores de puntos de distribución */}
-          {distributionPoints.map((point, index) => (
+          {/* TokenMarkers para puntos dentro del rango de 10 metros */}
+          {pointsInRange.map((point, index) => (
+            <TokenMarker
+              key={`token_${point.id}`}
+              id={point.id}
+              coordinate={point.coordinates}
+              markerColor="#E50B7B"
+              markerStrokeColor="#FFFFFF"
+              animated={true}
+              waveConfig={{
+                size: 60,
+                color: '#E50B7B',
+                duration: 1200,
+              }}
+              onPress={handleTokenPress}
+            />
+          ))}
+
+          {/* Marcadores normales para puntos fuera de rango */}
+          {pointsOutOfRange.map((point, index) => (
             <Mapbox.PointAnnotation
-              key={point.id}
+              key={`distribution_${point.id}`}
               id={`distributionPoint_${point.id}`}
               coordinate={point.coordinates}>
               <View style={styles.distributionMarker}>
@@ -267,8 +335,6 @@ const MapScreen = ({onBack}) => {
               </View>
             </Mapbox.PointAnnotation>
           ))}
-
-          <TokenMarker animated={true} />
         </Mapbox.MapView>
 
         {/* Controles flotantes del mapa */}
@@ -309,6 +375,8 @@ const MapScreen = ({onBack}) => {
               <Icon name="map-marker" size={16} color="#E50B7B" />
               <Text style={styles.headerTitle}>
                 Tokens cercanos {hasPoints && `(${distributionPoints.length})`}
+                {pointsInRange.length > 0 &&
+                  ` • ${pointsInRange.length} en rango`}
               </Text>
             </View>
             {isLoadingPoints && (
@@ -329,35 +397,42 @@ const MapScreen = ({onBack}) => {
           )}
 
           {/* Lista de tokens */}
-          {
-            <View style={styles.tokensSection}>
-              {hasPoints ? (
-                <FlatList
-                  data={tokensData}
-                  renderItem={renderTokenItem}
-                  keyExtractor={item => item.id}
-                  showsVerticalScrollIndicator={false}
-                  style={styles.tokensList}
-                  contentContainerStyle={styles.tokensListContent}
-                />
-              ) : (
-                !isLoadingPoints &&
-                !pointsError && (
-                  <View style={styles.emptyContainer}>
-                    <Icon name="map-marker" size={48} color="#9CA3AF" />
-                    <Text style={styles.emptyText}>
-                      No hay tokens disponibles
-                    </Text>
-                    <Text style={styles.emptySubtext}>
-                      Los tokens aparecerán cuando estén disponibles en tu área
-                    </Text>
-                  </View>
-                )
-              )}
-            </View>
-          }
+          <View style={styles.tokensSection}>
+            {hasPoints ? (
+              <FlatList
+                data={tokensData}
+                renderItem={renderTokenItem}
+                keyExtractor={item => item.id}
+                showsVerticalScrollIndicator={false}
+                style={styles.tokensList}
+                contentContainerStyle={styles.tokensListContent}
+              />
+            ) : (
+              !isLoadingPoints &&
+              !pointsError && (
+                <View style={styles.emptyContainer}>
+                  <Icon name="map-marker" size={48} color="#9CA3AF" />
+                  <Text style={styles.emptyText}>
+                    No hay tokens disponibles
+                  </Text>
+                  <Text style={styles.emptySubtext}>
+                    Los tokens aparecerán cuando estén disponibles en tu área
+                  </Text>
+                </View>
+              )
+            )}
+          </View>
         </View>
       </Animated.View>
+
+      {/* Modal de Recolección de Token */}
+      <TokenCollectionModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+        tokenData={selectedToken}
+        userLocation={userLocation}
+        onSuccess={handleCollectionSuccess}
+      />
     </View>
   );
 };
