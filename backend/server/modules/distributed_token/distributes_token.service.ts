@@ -1,6 +1,8 @@
 import { bbox, distance, pointToPolygonDistance, polygon, randomPoint } from "@turf/turf"
 import { distributedTokenModel } from "./distributed_token.model"
 import { userModel } from "../user/user.model"
+import { wallet } from "@server/config/wallet.config"
+import { parseEther } from "ethers"
 
 /**
  * Genera coordenadas aleatorias dentro de un polígono y distribuye
@@ -107,8 +109,38 @@ export const getAllDistributionPoints = async () => {
     return distributionPoints;
 }
 
-export const exchangePointsInCoordinate = async (coordinateId: string, userPosition: [number, number], userId: string): Promise<void> => {
-    // SE HACEN VALIDACIONES INICIALES:
+/**
+ * Intercambia puntos WARC en un punto de distribución cercano a la posición del usuario.
+ * 
+ * Esta función permite que un usuario recoja tokens (puntos) desde un punto de distribución geolocalizado
+ * si se encuentra a una distancia de **10 metros o menos** del mismo.
+ * 
+ * ### Flujo:
+ * 1. Valida los parámetros necesarios.
+ * 2. Busca el punto de distribución y el usuario en la base de datos.
+ * 3. Verifica que el usuario esté físicamente dentro del rango permitido.
+ * 4. Realiza la transferencia de tokens a la billetera del usuario.
+ * 5. Elimina el punto de distribución una vez completado el intercambio.
+ * 
+ * ---
+ * @param coordinateId `string` - ID del punto de distribución registrado en la base de datos.
+ * @param userPosition `[number, number]` - Coordenadas del usuario en formato `[longitud, latitud]`.
+ * @param userId `string` - ID del usuario que desea canjear los puntos.
+ * 
+ * @throws Error si falta algún parámetro obligatorio.
+ * @throws Error si el usuario o el punto de distribución no existen.
+ * @throws Error si la distancia entre el usuario y el punto de distribución es mayor a 10 metros.
+ * 
+ * ---
+ * @returns `Promise<void>` - No devuelve un valor. La función realiza sus acciones como efectos secundarios:
+ *   - Transferencia de tokens.
+ *   - Eliminación del punto de distribución.
+ */
+export const exchangePointsInCoordinate = async (
+    coordinateId: string,
+    userPosition: [number, number],
+    userId: string
+): Promise<void> => {
     if (!userId) {
         throw new Error("No se ha dado el ID del usuario.")
     }
@@ -119,32 +151,31 @@ export const exchangePointsInCoordinate = async (coordinateId: string, userPosit
         throw new Error("Las coordenadas del usuario deben ser [longitud, latitud]")
     }
 
-    // SE TOMA EL PUNTO DE DISTRIBUCIÓN Y EL USUARIO DE LA BASE DE DATOS, SE HACE CON PROMISE.ALL PARA PARALELIZAR LAS PROMESAS
-    const [distributionPoint, user] = await Promise.all([distributedTokenModel.findById(coordinateId), userModel.findById(userId)])
-    // SI NO EXISTEN SE TIRA ERROR
+    // Busca en paralelo el punto de distribución y el usuario
+    const [distributionPoint, user] = await Promise.all([
+        distributedTokenModel.findById(coordinateId),
+        userModel.findById(userId)
+    ])
+
     if (!distributionPoint) {
         throw new Error("No se ha encontrado el punto de distribución")
     }
     if (!user) {
         throw new Error("No se ha encontrado al usuario")
     }
+
     const { quantity, coordinates } = distributionPoint
 
-    // SE VALIDA PRIMERO SI EL USUARIO ESTÁ A RANGO DEL PUNTO DE DISTRIBUCIÓN
+    // Verifica la distancia entre el usuario y el punto de distribución
     const distanceFromDistributionPoint = distance(coordinates, userPosition, { units: "meters" })
     if (distanceFromDistributionPoint > 10) {
         throw new Error("La distancia al punto de distribución debe ser menor o igual a 10 metros")
-        // NO SE PERMITE AL USUARIO OBTENER LOS PUNTOS SI ESTÁ A MÁS DE 10 METROS DE DISTANCIA
     }
 
-    // SE ASIGNAN PUNTOS, DEBE HACERSE POR BLOCKCHAIN
+    // Transfiere los tokens WARC al usuario
+    wallet.transferWARC(user.walletAddress, quantity.toString())
 
-    // FALTA AGREGAR LÓGICA PARA INTERACTUAR DESDE ACÁ CON LA BLOCKCHAIN PARA ASIGNAR ESE MONTO A LA BILLETERA DEL USUARIO
-    // LA PROPIEDAD accountBalance NO DEBE IR EN LA BASE DE DATOS, EL BALANCE DEBE OBTENERSE DIRECTO DESDE LA BLOCKCHAIN
-    // HAY QUE CAMBIAR LA LÓGICA ANTERIOR (A PARTIR DEL REGISTRO DE USUARIO, OBTENER SU DIRECCIÓN PÚBLICA DE WALLET QUE SI SE GUARDA EN LA DB)
-    // A PARTIR DE LA DIRECCIÓN PÚBLICA DE LA WALLET, LLAMAR AL SMART CONTRACT Y OTORGAR CRÉDITOS AL USUARIO
-
-    // SE ELIMINA EL PUNTO DE DISTRIBUCIÓN (DEBERÍA SER UN SOFT DELETE, PERO NO HAY TIEMPO PARA ESO)
+    // Elimina el punto de distribución tras la recolección
     await distributedTokenModel.deleteOne({ _id: coordinateId })
 
     return;

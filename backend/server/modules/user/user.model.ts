@@ -60,13 +60,14 @@ const userSchema = new mongoose.Schema({
 
     /**
      * Dirección pública de la billetera del usuario en la red Polkadot.
-     * Este campo es opcional.
+     * Este campo es obligatorio.
      * 
      * Ejemplo de dirección en Polkadot:
      * `14p1VYt5bEdbFZ4C2iHt6RQ5k9q2ZfUvM1sDeXr...`
      */
     walletAddress: {
         type: String,
+        required: true,
     }
 }, {
     /**

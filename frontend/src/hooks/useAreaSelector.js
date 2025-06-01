@@ -1,11 +1,18 @@
 import {useState, useEffect, useMemo} from 'react';
 import {Alert, PermissionsAndroid, Platform} from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
+import axios from 'axios';
+import config from '../../config';
+
+
+const API_BASE_URL = config.API_URL;
 
 export const useAreaSelector = () => {
   const [userLocation, setUserLocation] = useState([-99.1332, 19.4326]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPoints, setSelectedPoints] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
 
   useEffect(() => {
     requestLocationPermission();
@@ -139,7 +146,7 @@ export const useAreaSelector = () => {
     );
   };
 
-  const handleNext = onNext => {
+  const handleNext = async onNext => {
     if (selectedPoints.length < 3) {
       Alert.alert(
         'Puntos insuficientes',
@@ -152,10 +159,60 @@ export const useAreaSelector = () => {
       coordinates: selectedPoints[0].coordinates, // Repetir el primer punto para cerrar el polígono
       order: selectedPoints.length + 1,
     };
-    const updatedPoints = [...selectedPoints,lastPoint];
-    const resPoints = updatedPoints.map((point) =>  [point.coordinates[0] , point.coordinates[1]] );
-    console.log('Puntos seleccionados:', [resPoints]);
-    onNext && onNext(selectedPoints);
+    const updatedPoints = [...selectedPoints, lastPoint];
+    const resPoints = updatedPoints.map(point => [
+      point.coordinates[0],
+      point.coordinates[1],
+    ]);
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      console.log(
+        'Enviando polígono:',
+        `${API_BASE_URL}/api/distributed-token/in-polygon`,
+        resPoints,
+      );
+
+      const response = await axios.post(
+        `${API_BASE_URL}/api/distributed-token/in-polygon`,
+        {totalPoints: 10, polygonCoordinates: resPoints},
+        {
+          timeout: 30000, // 30 segundos
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+
+      console.log('Respuesta del servidor:', response.data);
+
+      // Llamar onNext con los datos originales y la respuesta del servidor
+      onNext && onNext(selectedPoints, response.data);
+    } catch (error) {
+      console.error('Error al enviar área:', error);
+
+      let errorMessage = 'Error desconocido';
+
+      if (error.code === 'ECONNABORTED') {
+        errorMessage = 'Tiempo de espera agotado. Verifica tu conexión.';
+      } else if (error.response) {
+        // Error del servidor (4xx, 5xx)
+        errorMessage = `Error del servidor: ${error.response.status}`;
+        if (error.response.data?.message) {
+          errorMessage += ` - ${error.response.data.message}`;
+        }
+      } else if (error.request) {
+        // Error de red
+        errorMessage =
+          'Error de conexión. Verifica que el servidor esté disponible.';
+      } else {
+        errorMessage = error.message || 'Error inesperado';
+      }
+
+      setSubmitError(errorMessage);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // GeoJSON para el polígono
@@ -243,6 +300,8 @@ export const useAreaSelector = () => {
     isMapReady,
     polygonGeoJSON,
     linesGeoJSON,
+    isSubmitting,
+    submitError,
 
     // Acciones
     handleMapPress,
@@ -251,5 +310,6 @@ export const useAreaSelector = () => {
     clearAllPoints,
     handleNext,
     getCurrentLocation,
+    clearSubmitError: () => setSubmitError(null),
   };
 };

@@ -11,9 +11,6 @@ import AreaSelectorBottomPanel from '../../components/area-selector/AreaSelector
 import {useAreaSelector} from '../../hooks/useAreaSelector';
 import {AreaSelectorStyles} from '../../styles/AreaSelectorStyles';
 
-// Configurar token de Mapbox - USAR TOKEN PÚBLICO (pk.)
-// Mapbox.setAccessToken('pk.TU_TOKEN_PUBLICO_AQUI');
-console.warn('Configurar token público de Mapbox antes de usar');
 
 const AreaSelectorScreen = ({onBack, onNext}) => {
   const [animatedValue] = useState(new Animated.Value(0));
@@ -27,12 +24,15 @@ const AreaSelectorScreen = ({onBack, onNext}) => {
     isMapReady,
     polygonGeoJSON,
     linesGeoJSON,
+    isSubmitting,
+    submitError,
     handleMapPress,
     removePoint,
     removeLastPoint,
     clearAllPoints,
     handleNext,
     getCurrentLocation,
+    clearSubmitError,
   } = useAreaSelector();
 
   // Iniciar animación de pulso
@@ -104,8 +104,11 @@ const AreaSelectorScreen = ({onBack, onNext}) => {
       <AreaSelectorBottomPanel
         selectedPoints={selectedPoints}
         canProceed={canProceed}
+        isSubmitting={isSubmitting}
+        submitError={submitError}
         onPointRemove={removePoint}
         onNext={() => handleNext(onNext)}
+        onClearError={clearSubmitError}
       />
     </View>
   );
