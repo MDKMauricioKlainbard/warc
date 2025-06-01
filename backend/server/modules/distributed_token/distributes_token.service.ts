@@ -2,7 +2,6 @@ import { bbox, distance, pointToPolygonDistance, polygon, randomPoint } from "@t
 import { distributedTokenModel } from "./distributed_token.model"
 import { userModel } from "../user/user.model"
 import { wallet } from "@server/config/wallet.config"
-import { parseEther } from "ethers"
 import Big from "big.js"
 
 /**
@@ -18,6 +17,7 @@ import Big from "big.js"
  * 
  * @param {number} totalTokens - Cantidad total (entera o decimal) de tokens a distribuir.
  * @param {number[][]} polygonCoordinates - Coordenadas que definen el polígono (el último punto debe ser igual al primero).
+ * @param {string} walletAddress - La dirección pública de la billetera que emite la petición para distribuir los puntos en el polígono.
  * 
  * @returns {Promise<{coordinates: [number, number], quantity: number}[]>} 
  * Un arreglo de objetos, cada uno representando una coordenada y la cantidad de tokens asignados.
@@ -26,7 +26,8 @@ import Big from "big.js"
  */
 export const generateRandomPoints = async (
     totalTokens: number,
-    polygonCoordinates: number[][]
+    polygonCoordinates: number[][],
+    walletAddress: string,
 ): Promise<{
     coordinates: [number, number],
     quantity: number,
@@ -40,6 +41,8 @@ export const generateRandomPoints = async (
     if (polygonCoordinates.length < 4) {
         throw new Error("El polígono debe tener al menos 4 vértices (incluyendo el cierre del mismo).");
     }
+
+    await wallet.transferWARCToDistributionPool(walletAddress, totalTokens)
 
     // Se crea un polígono válido a partir de las coordenadas
     const polygonRegion = polygon([polygonCoordinates]);
@@ -97,13 +100,13 @@ export const generateRandomPoints = async (
     }
 
     // Filtramos los puntos que recibieron al menos una fracción de token
-    const pointsWithTokens = distributionPoints.filter(p => p.quantity > 0);
+    const pointsWithTokens = distributionPoints.filter(p => p.quantity > 0)
 
     // Guardamos los puntos en la base de datos
     await distributedTokenModel.insertMany(pointsWithTokens);
 
-    // Retornamos todos los puntos generados (con o sin tokens asignados)
-    return distributionPoints;
+    // Retornamos todos los puntos generados (con tokens asignados)
+    return pointsWithTokens;
 };
 
 
@@ -186,7 +189,7 @@ export const exchangePointsInCoordinate = async (
     }
 
     // Transfiere los tokens WARC al usuario
-    wallet.transferWARC(user.walletAddress, quantity.toString())
+    await wallet.transferWARCFromDistributionPool(user.walletAddress, quantity)
 
     // Elimina el punto de distribución tras la recolección
     await distributedTokenModel.deleteOne({ _id: coordinateId })

@@ -18,6 +18,7 @@ export const DistributedTokenController = express.Router()
  *             required:
  *               - totalPoints
  *               - polygonCoordinates
+ *               - walletAddress
  *             properties:
  *               totalPoints:
  *                 type: integer
@@ -31,6 +32,9 @@ export const DistributedTokenController = express.Router()
  *                   items:
  *                     type: number
  *                 example: [[-73.97, 40.77], [-73.88, 40.78], [-73.88, 40.71], [-73.97, 40.71], [-73.97, 40.77]]
+ *               walletAddress:
+ *                 type: string
+ *                 description: La dirección pública de la billetera del usuario que emite la petición para distribuir los puntos.
  *     responses:
  *       200:
  *         description: Puntos generados correctamente
@@ -53,9 +57,9 @@ export const DistributedTokenController = express.Router()
  *         description: Error del servidor
  */
 DistributedTokenController.post('/in-polygon', async (req, res): Promise<void> => {
-    const { totalPoints, polygonCoordinates } = req.body
+    const { totalPoints, polygonCoordinates, walletAddress } = req.body
     try {
-        const result = await generateRandomPoints(totalPoints, polygonCoordinates)
+        const result = await generateRandomPoints(totalPoints, polygonCoordinates, walletAddress)
         res.json(result)
     } catch (error) {
         res.status(500).json({ message: (error as Error).message })
@@ -157,11 +161,11 @@ DistributedTokenController.get('/get-distribution-points', async (req, res): Pro
  */
 DistributedTokenController.post("/exchange-tokens", async (req, res): Promise<void> => {
     try {
-        const {coordinateId, userPosition, userId} = req.body;
+        const { coordinateId, userPosition, userId } = req.body;
         await exchangePointsInCoordinate(coordinateId, userPosition, userId)
         res.status(200).send("Transacción realizada con éxito.")
     } catch (error) {
-        res.status(500).json({message: (error as Error).message})
+        res.status(500).json({ message: (error as Error).message })
     }
     return
 })
