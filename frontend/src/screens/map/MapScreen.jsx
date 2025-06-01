@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, {useEffect, useState, useRef} from 'react';
 import {
   View,
   StyleSheet,
@@ -9,26 +9,48 @@ import {
   Text,
   ActivityIndicator,
   FlatList,
+  Dimensions,
+  PanResponder,
 } from 'react-native';
 import Mapbox from '@rnmapbox/maps';
 import Geolocation from '@react-native-community/geolocation';
 import TokenMarker from '../../components/map/TokenMarker';
 import Icon from 'react-native-vector-icons/FontAwesome';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  runOnJS,
+} from 'react-native-reanimated';
 
 // Configurar tu token de Mapbox aquí
-Mapbox.setAccessToken('sk.eyJ1IjoiZ2FsdTc3NzciLCJhIjoiY21iYjl5OTc0MGZobDJycHh5Y2JrZ3poNCJ9.qbuqOJvDIL8G9ZuKOswYdA');
+Mapbox.setAccessToken(
+  'sk.eyJ1IjoiZ2FsdTc3NzciLCJhIjoiY21iYjl5OTc0MGZobDJycHh5Y2JrZ3poNCJ9.qbuqOJvDIL8G9ZuKOswYdA',
+);
 
-const MapScreen = ({ onBack }) => {
+const {height: SCREEN_HEIGHT} = Dimensions.get('window');
+
+// Definir los puntos de ajuste como porcentajes de la altura de la pantalla
+const SNAP_POINTS = {
+  MINIMIZED: 0.1, // 10%
+  MEDIUM: 0.45, // 45%
+  MAXIMIZED: 0.9, // 90%
+};
+
+const MapScreen = ({onBack}) => {
   const [userLocation, setUserLocation] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [showBottomSheet, setShowBottomSheet] = useState(true);
+  const [currentSnapPoint, setCurrentSnapPoint] = useState('MEDIUM');
+
+  // Animated value para la posición del bottom sheet
+  const translateY = useSharedValue(SCREEN_HEIGHT * (1 - SNAP_POINTS.MEDIUM));
 
   // Datos de ejemplo para los tokens cercanos
   const tokensData = [
     {
       id: '1',
       name: 'Token Dorado',
-      distance: '150m al norte',
+      distance: '10 m al norte',
       icon: '🏆',
       color: '#FCD34D',
       status: 'En rango',
@@ -37,7 +59,7 @@ const MapScreen = ({ onBack }) => {
     {
       id: '2',
       name: 'NFT Arte Digital',
-      distance: '320m al este',
+      distance: '320 m al este',
       icon: '🎨',
       color: '#A78BFA',
       status: 'Caminar',
@@ -46,17 +68,109 @@ const MapScreen = ({ onBack }) => {
     {
       id: '3',
       name: 'Gema Rara',
-      distance: '180m al sur',
+      distance: '180 m al sur',
       icon: '💎',
       color: '#34D399',
       status: 'Caminar',
       statusColor: '#F59E0B',
+    },
+    {
+      id: '4',
+      name: 'Tesoro Raro',
+      distance: '450 m al oeste',
+      icon: '📦',
+      color: '#60A5FA',
+      status: 'Zona AR',
+      statusColor: '#3B82F6',
     },
   ];
 
   useEffect(() => {
     requestLocationPermission();
   }, []);
+
+  // Función para mover a un punto de ajuste específico
+  const snapToPoint = point => {
+    const newY = SCREEN_HEIGHT * (1 - SNAP_POINTS[point]);
+    translateY.value = withSpring(newY, {
+      damping: 20,
+      stiffness: 200,
+    });
+    setCurrentSnapPoint(point);
+  };
+
+  // Función para encontrar el punto de ajuste más cercano
+  const findClosestSnapPoint = currentY => {
+    const currentPercentage = 1 - currentY / SCREEN_HEIGHT;
+
+    let closestPoint = 'MEDIUM';
+    let minDistance = Math.abs(currentPercentage - SNAP_POINTS.MEDIUM);
+
+    Object.entries(SNAP_POINTS).forEach(([point, percentage]) => {
+      const distance = Math.abs(currentPercentage - percentage);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestPoint = point;
+      }
+    });
+
+    return closestPoint;
+  };
+
+  // PanResponder para manejar los gestos de deslizamiento
+  const panResponder = PanResponder.create({
+    onMoveShouldSetPanResponder: (evt, gestureState) => {
+      // Solo responder a movimientos verticales significativos
+      return (
+        Math.abs(gestureState.dy) > 5 &&
+        Math.abs(gestureState.dy) > Math.abs(gestureState.dx)
+      );
+    },
+
+    onPanResponderGrant: () => {
+      // Iniciar el gesto
+    },
+
+    onPanResponderMove: (evt, gestureState) => {
+      // Calcular nueva posición
+      const baseY = SCREEN_HEIGHT * (1 - SNAP_POINTS[currentSnapPoint]);
+      const newY = baseY + gestureState.dy;
+
+      // Limitar el rango de movimiento
+      const minY = SCREEN_HEIGHT * (1 - SNAP_POINTS.MAXIMIZED);
+      const maxY = SCREEN_HEIGHT * (1 - SNAP_POINTS.MINIMIZED);
+
+      translateY.value = Math.max(minY, Math.min(maxY, newY));
+    },
+
+    onPanResponderRelease: (evt, gestureState) => {
+      // Encontrar el punto de ajuste más cercano basado en la posición final
+      const finalY = translateY.value;
+      const closestPoint = findClosestSnapPoint(finalY);
+
+      // Considerar la velocidad del gesto para decisiones más intuitivas
+      if (Math.abs(gestureState.vy) > 0.5) {
+        if (gestureState.vy > 0) {
+          // Deslizamiento hacia abajo
+          if (currentSnapPoint === 'MAXIMIZED') {
+            snapToPoint('MEDIUM');
+          } else if (currentSnapPoint === 'MEDIUM') {
+            snapToPoint('MINIMIZED');
+          }
+        } else {
+          // Deslizamiento hacia arriba
+          if (currentSnapPoint === 'MINIMIZED') {
+            snapToPoint('MEDIUM');
+          } else if (currentSnapPoint === 'MEDIUM') {
+            snapToPoint('MAXIMIZED');
+          }
+        }
+      } else {
+        // Sin velocidad significativa, usar el punto más cercano
+        snapToPoint(closestPoint);
+      }
+    },
+  });
 
   const requestLocationPermission = async () => {
     if (Platform.OS === 'android') {
@@ -65,7 +179,8 @@ const MapScreen = ({ onBack }) => {
           PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
           {
             title: 'Permiso de Ubicación',
-            message: 'Esta app necesita acceso a tu ubicación para mostrar el mapa',
+            message:
+              'Esta app necesita acceso a tu ubicación para mostrar el mapa',
             buttonNeutral: 'Preguntar después',
             buttonNegative: 'Cancelar',
             buttonPositive: 'OK',
@@ -87,19 +202,16 @@ const MapScreen = ({ onBack }) => {
 
   const getCurrentLocation = () => {
     Geolocation.getCurrentPosition(
-      (position) => {
-        setUserLocation([
-          position.coords.longitude,
-          position.coords.latitude,
-        ]);
+      position => {
+        setUserLocation([position.coords.longitude, position.coords.latitude]);
         setIsLoading(false);
       },
-      (error) => {
+      error => {
         console.log('Error obteniendo ubicación:', error);
         Alert.alert('Error', 'No se pudo obtener la ubicación');
         setDefaultLocation();
       },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+      {enableHighAccuracy: true, timeout: 15000, maximumAge: 10000},
     );
   };
 
@@ -109,23 +221,36 @@ const MapScreen = ({ onBack }) => {
     setIsLoading(false);
   };
 
-  const renderTokenItem = ({ item }) => (
+  const renderTokenItem = ({item}) => (
     <View style={styles.tokenItem}>
-      <View style={[styles.tokenIcon, { backgroundColor: item.color + '20' }]}>
+      <View style={[styles.tokenIcon, {backgroundColor: item.color + '20'}]}>
         <Text style={styles.tokenEmoji}>{item.icon}</Text>
       </View>
       <View style={styles.tokenInfo}>
         <Text style={styles.tokenName}>{item.name}</Text>
         <Text style={styles.tokenDistance}>📍 {item.distance}</Text>
-        <Text style={[styles.tokenStatus, { color: item.statusColor }]}>
+        <Text style={[styles.tokenStatus, {color: item.statusColor}]}>
           ⚡ {item.status}
         </Text>
       </View>
-      <TouchableOpacity style={[styles.irButton, { backgroundColor: item.statusColor }]}>
+      <TouchableOpacity
+        style={[styles.irButton, {backgroundColor: item.statusColor}]}>
         <Text style={styles.irButtonText}>IR</Text>
       </TouchableOpacity>
     </View>
   );
+
+  // Estilo animado para el bottom sheet
+  const animatedBottomSheetStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{translateY: translateY.value}],
+    };
+  });
+
+  // Calcular la altura del contenido basada en el snap point actual
+  const getContentHeight = () => {
+    return SCREEN_HEIGHT * SNAP_POINTS[currentSnapPoint];
+  };
 
   if (isLoading || !userLocation) {
     return (
@@ -145,7 +270,7 @@ const MapScreen = ({ onBack }) => {
             name="arrow-left"
             size={16}
             color="#6B7280"
-            style={{ zIndex: 20}}
+            style={{zIndex: 20}}
           />
         </TouchableOpacity>
       </View>
@@ -195,22 +320,32 @@ const MapScreen = ({ onBack }) => {
         </View>
       </View>
 
-      {/* Bottom Sheet */}
-      {showBottomSheet && (
-        <View style={styles.bottomSheet}>
-          {/* Handle */}
-          <View style={styles.bottomSheetHandle} />
+      {/* Bottom Sheet Arrastrable */}
+      <Animated.View
+        style={[
+          styles.bottomSheet,
+          animatedBottomSheetStyle,
+          {height: SCREEN_HEIGHT},
+        ]}
+        {...panResponder.panHandlers}>
+        {/* Handle para arrastrar */}
+        <View style={styles.bottomSheetHandle} />
 
-          {/* Botón AR */}
-          <TouchableOpacity style={styles.arButton}>
-            <Icon
-              name="camera"
-              size={16}
-              color="#FFFFFF"
-              style={{marginRight: 8}}
-            />
-            <Text style={styles.arButtonText}>ABRIR CÁMARA AR</Text>
-          </TouchableOpacity>
+        {/* Contenido del bottom sheet */}
+        <View style={[styles.bottomSheetContent, {height: getContentHeight()}]}>
+          {/* Botón AR - Solo visible en MEDIUM y MAXIMIZED */}
+          {(currentSnapPoint === 'MEDIUM' ||
+            currentSnapPoint === 'MAXIMIZED') && (
+            <TouchableOpacity style={styles.arButton}>
+              <Icon
+                name="camera"
+                size={16}
+                color="#FFFFFF"
+                style={{marginRight: 8}}
+              />
+              <Text style={styles.arButtonText}>ABRIR CÁMARA AR</Text>
+            </TouchableOpacity>
+          )}
 
           {/* Tokens Cercanos */}
           <View style={styles.tokensSection}>
@@ -219,16 +354,19 @@ const MapScreen = ({ onBack }) => {
               <Text style={styles.sectionTitle}>Tokens Cercanos</Text>
             </View>
 
-            <FlatList
-              data={tokensData}
-              renderItem={renderTokenItem}
-              keyExtractor={item => item.id}
-              showsVerticalScrollIndicator={false}
-              style={styles.tokensList}
-            />
+            {currentSnapPoint !== 'MINIMIZED' && (
+              <FlatList
+                data={tokensData}
+                renderItem={renderTokenItem}
+                keyExtractor={item => item.id}
+                showsVerticalScrollIndicator={false}
+                style={styles.tokensList}
+                contentContainerStyle={styles.tokensListContent}
+              />
+            )}
           </View>
         </View>
-      )}
+      </Animated.View>
     </View>
   );
 };
@@ -270,37 +408,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  gpsStatus: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  gpsIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#EF4444',
-    marginRight: 6,
-  },
-  gpsText: {
-    fontSize: 14,
-    color: '#374151',
-    fontWeight: '500',
-  },
-  batteryStatus: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  batteryText: {
-    fontSize: 14,
-    color: '#374151',
-    fontWeight: '500',
-  },
-  networkText: {
-    fontSize: 14,
-    color: '#374151',
-    fontWeight: '500',
   },
   mapContainer: {
     flex: 1,
@@ -368,13 +475,13 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   bottomSheet: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 32,
-    maxHeight: '50%',
     shadowColor: '#000000',
     shadowOffset: {width: 0, height: -4},
     shadowOpacity: 0.1,
@@ -387,7 +494,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#D1D5DB',
     borderRadius: 2,
     alignSelf: 'center',
-    marginBottom: 20,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  bottomSheetContent: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingBottom: 32,
   },
   arButton: {
     backgroundColor: '#4F46E5',
@@ -432,6 +545,9 @@ const styles = StyleSheet.create({
   },
   tokensList: {
     flex: 1,
+  },
+  tokensListContent: {
+    paddingBottom: 20,
   },
   tokenItem: {
     flexDirection: 'row',
