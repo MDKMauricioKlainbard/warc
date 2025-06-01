@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import MapScreen from '../map/MapScreen';
 import Icon from 'react-native-vector-icons/FontAwesome';
+import TokenItem from '../../components/map/TokenItem';
 
 const {width} = Dimensions.get('window');
 
@@ -57,17 +58,13 @@ const HomeScreen = () => {
   ];
 
   const renderTokenItem = ({item}) => (
-    <View style={styles.tokenItem}>
-      <View style={[styles.tokenIcon, {backgroundColor: item.color + '20'}]}>
-        <Text style={styles.tokenEmoji}>{item.icon}</Text>
-      </View>
-      <View style={styles.tokenInfo}>
-        <Text style={styles.tokenName}>{item.name}</Text>
-      </View>
-      <TouchableOpacity style={styles.irButton}>
-        <Text style={styles.irButtonText}>IR</Text>
-      </TouchableOpacity>
-    </View>
+    <TokenItem
+      item={item}
+      onPress={token => {
+        // Manejar la acción de ir al token
+        console.log('Ir a token:', token.name);
+      }}
+    />
   );
 
   if (currentScreen === 'map') {

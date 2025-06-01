@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, {useEffect, useState, useRef} from 'react';
 import {
   View,
   StyleSheet,
@@ -9,128 +9,196 @@ import {
   Text,
   ActivityIndicator,
   FlatList,
+  Dimensions,
+  PanResponder,
 } from 'react-native';
 import Mapbox from '@rnmapbox/maps';
 import Geolocation from '@react-native-community/geolocation';
 import TokenMarker from '../../components/map/TokenMarker';
 import Icon from 'react-native-vector-icons/FontAwesome';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  runOnJS,
+} from 'react-native-reanimated';
+import TokenItem from '../../components/map/TokenItem';
+import {useDistributionPoints} from '../../hooks/UseDistributionPoints'; // Importar el nuevo hook
 
 // Configurar tu token de Mapbox aquí
-Mapbox.setAccessToken('sk.eyJ1IjoiZ2FsdTc3NzciLCJhIjoiY21iYjl5OTc0MGZobDJycHh5Y2JrZ3poNCJ9.qbuqOJvDIL8G9ZuKOswYdA');
+Mapbox.setAccessToken(
+  'sk.eyJ1IjoiZ2FsdTc3NzciLCJhIjoiY21iYjl5OTc0MGZobDJycHh5Y2JrZ3poNCJ9.qbuqOJvDIL8G9ZuKOswYdA',
+);
 
-const MapScreen = ({ onBack }) => {
-  const [userLocation, setUserLocation] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [showBottomSheet, setShowBottomSheet] = useState(true);
+const {height: SCREEN_HEIGHT} = Dimensions.get('window');
 
-  // Datos de ejemplo para los tokens cercanos
-  const tokensData = [
-    {
-      id: '1',
-      name: 'Token Dorado',
-      distance: '150m al norte',
-      icon: '🏆',
-      color: '#FCD34D',
-      status: 'En rango',
-      statusColor: '#10B981',
-    },
-    {
-      id: '2',
-      name: 'NFT Arte Digital',
-      distance: '320m al este',
-      icon: '🎨',
-      color: '#A78BFA',
-      status: 'Caminar',
-      statusColor: '#F59E0B',
-    },
-    {
-      id: '3',
-      name: 'Gema Rara',
-      distance: '180m al sur',
-      icon: '💎',
-      color: '#34D399',
-      status: 'Caminar',
-      statusColor: '#F59E0B',
-    },
-  ];
+// Definir los puntos de ajuste como porcentajes de la altura de la pantalla
+const SNAP_POINTS = {
+  MINIMIZED: 0.15, // 15%
+  MEDIUM: 0.45, // 45%
+  MAXIMIZED: 0.80, // 85%
+};
 
-  useEffect(() => {
-    requestLocationPermission();
-  }, []);
+const MapScreen = ({onBack}) => {
+  const [currentSnapPoint, setCurrentSnapPoint] = useState('MEDIUM');
 
-  const requestLocationPermission = async () => {
-    if (Platform.OS === 'android') {
-      try {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-          {
-            title: 'Permiso de Ubicación',
-            message: 'Esta app necesita acceso a tu ubicación para mostrar el mapa',
-            buttonNeutral: 'Preguntar después',
-            buttonNegative: 'Cancelar',
-            buttonPositive: 'OK',
-          },
-        );
-        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-          getCurrentLocation();
-        } else {
-          setDefaultLocation();
-        }
-      } catch (err) {
-        console.warn(err);
-        setDefaultLocation();
+  // Usar el nuevo hook para obtener puntos de distribución
+  const {
+    userLocation,
+    isLoading,
+    isMapReady,
+    distributionPoints,
+    isLoadingPoints,
+    pointsError,
+    hasPoints,
+    refreshDistributionPoints,
+    getPointDistanceInfo,
+    getNearbyPoints,
+  } = useDistributionPoints();
+
+  // Animated value para la posición del bottom sheet
+  const translateY = useSharedValue(SCREEN_HEIGHT * (1 - SNAP_POINTS.MEDIUM));
+
+  // Convertir puntos de distribución al formato esperado por TokenItem
+  const tokensData = React.useMemo(() => {
+    if (!hasPoints || !userLocation) return [];
+
+    return distributionPoints.map((point, index) => {
+      const distanceInfo = getPointDistanceInfo(point);
+
+      return {
+        id: point.id,
+        name: `Token #${index + 1}`,
+        distance: distanceInfo.distanceText,
+        icon: point.quantity >= 5 ? '🏆' : point.quantity >= 3 ? '💎' : '📦',
+        color: '#07415C',
+        status:
+          distanceInfo.distance < 0.05
+            ? 'En rango'
+            : distanceInfo.distance < 0.5
+            ? 'Caminar'
+            : 'Zona AR',
+        statusColor:
+          distanceInfo.distance < 0.05
+            ? '#E50B7B'
+            : distanceInfo.distance < 0.5
+            ? '#9CA3AF'
+            : '#06B6D4',
+        coordinates: point.coordinates,
+        quantity: point.quantity,
+      };
+    });
+  }, [distributionPoints, userLocation, getPointDistanceInfo, hasPoints]);
+
+  // Función para mover a un punto de ajuste específico
+  const snapToPoint = point => {
+    const newY = SCREEN_HEIGHT * (1 - SNAP_POINTS[point]);
+    translateY.value = withSpring(newY, {
+      damping: 20,
+      stiffness: 200,
+    });
+    setCurrentSnapPoint(point);
+  };
+
+  // Función para encontrar el punto de ajuste más cercano
+  const findClosestSnapPoint = currentY => {
+    const currentPercentage = 1 - currentY / SCREEN_HEIGHT;
+
+    let closestPoint = 'MEDIUM';
+    let minDistance = Math.abs(currentPercentage - SNAP_POINTS.MEDIUM);
+
+    Object.entries(SNAP_POINTS).forEach(([point, percentage]) => {
+      const distance = Math.abs(currentPercentage - percentage);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestPoint = point;
       }
-    } else {
-      getCurrentLocation();
-    }
+    });
+
+    return closestPoint;
   };
 
-  const getCurrentLocation = () => {
-    Geolocation.getCurrentPosition(
-      (position) => {
-        setUserLocation([
-          position.coords.longitude,
-          position.coords.latitude,
-        ]);
-        setIsLoading(false);
-      },
-      (error) => {
-        console.log('Error obteniendo ubicación:', error);
-        Alert.alert('Error', 'No se pudo obtener la ubicación');
-        setDefaultLocation();
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
-    );
-  };
+  // PanResponder para manejar los gestos de deslizamiento
+  const panResponder = PanResponder.create({
+    onMoveShouldSetPanResponder: (evt, gestureState) => {
+      return (
+        Math.abs(gestureState.dy) > 5 &&
+        Math.abs(gestureState.dy) > Math.abs(gestureState.dx)
+      );
+    },
 
-  const setDefaultLocation = () => {
-    // Ubicación por defecto (México DF)
-    setUserLocation([-99.1332, 19.4326]);
-    setIsLoading(false);
-  };
+    onPanResponderGrant: () => {},
 
-  const renderTokenItem = ({ item }) => (
-    <View style={styles.tokenItem}>
-      <View style={[styles.tokenIcon, { backgroundColor: item.color + '20' }]}>
-        <Text style={styles.tokenEmoji}>{item.icon}</Text>
-      </View>
-      <View style={styles.tokenInfo}>
-        <Text style={styles.tokenName}>{item.name}</Text>
-        <Text style={styles.tokenDistance}>📍 {item.distance}</Text>
-        <Text style={[styles.tokenStatus, { color: item.statusColor }]}>
-          ⚡ {item.status}
-        </Text>
-      </View>
-      <TouchableOpacity style={[styles.irButton, { backgroundColor: item.statusColor }]}>
-        <Text style={styles.irButtonText}>IR</Text>
-      </TouchableOpacity>
-    </View>
+    onPanResponderMove: (evt, gestureState) => {
+      const baseY = SCREEN_HEIGHT * (1 - SNAP_POINTS[currentSnapPoint]);
+      const newY = baseY + gestureState.dy;
+
+      const minY = SCREEN_HEIGHT * (1 - SNAP_POINTS.MAXIMIZED);
+      const maxY = SCREEN_HEIGHT * (1 - SNAP_POINTS.MINIMIZED);
+
+      translateY.value = Math.max(minY, Math.min(maxY, newY));
+    },
+
+    onPanResponderRelease: (evt, gestureState) => {
+      const finalY = translateY.value;
+      const closestPoint = findClosestSnapPoint(finalY);
+
+      if (Math.abs(gestureState.vy) > 0.5) {
+        if (gestureState.vy > 0) {
+          if (currentSnapPoint === 'MAXIMIZED') {
+            snapToPoint('MEDIUM');
+          } else if (currentSnapPoint === 'MEDIUM') {
+            snapToPoint('MINIMIZED');
+          }
+        } else {
+          if (currentSnapPoint === 'MINIMIZED') {
+            snapToPoint('MEDIUM');
+          } else if (currentSnapPoint === 'MEDIUM') {
+            snapToPoint('MAXIMIZED');
+          }
+        }
+      } else {
+        snapToPoint(closestPoint);
+      }
+    },
+  });
+
+  const renderTokenItem = ({item}) => (
+    <TokenItem
+      item={item}
+      onPress={token => {
+        // Manejar la acción de ir al token
+        console.log(
+          'Ir a token:',
+          token.name,
+          'Coordenadas:',
+          token.coordinates,
+        );
+      }}
+    />
   );
 
-  if (isLoading || !userLocation) {
+  // Estilo animado para el bottom sheet
+  const animatedBottomSheetStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{translateY: translateY.value}],
+    };
+  });
+
+  // Calcular la altura del contenido basada en el snap point actual
+  const getContentHeight = () => {
+    return SCREEN_HEIGHT * SNAP_POINTS[currentSnapPoint];
+  };
+
+  // Función para refrescar los puntos
+  const handleRefresh = () => {
+    refreshDistributionPoints();
+  };
+
+  if (isLoading || !isMapReady) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4F46E5" />
+        <ActivityIndicator size="large" color="#07415C" />
         <Text style={styles.loadingText}>Cargando mapa...</Text>
       </View>
     );
@@ -145,7 +213,20 @@ const MapScreen = ({ onBack }) => {
             name="arrow-left"
             size={16}
             color="#6B7280"
-            style={{ zIndex: 20}}
+            style={{zIndex: 20}}
+          />
+        </TouchableOpacity>
+
+        {/* Botón de refresh para los puntos */}
+        <TouchableOpacity
+          style={[styles.backButton, {marginLeft: 8}]}
+          onPress={handleRefresh}
+          disabled={isLoadingPoints}>
+          <Icon
+            name={isLoadingPoints ? 'spinner' : 'refresh'}
+            size={16}
+            color="#6B7280"
+            style={{zIndex: 20}}
           />
         </TouchableOpacity>
       </View>
@@ -166,12 +247,26 @@ const MapScreen = ({ onBack }) => {
             animationDuration={2000}
           />
 
-          {/* Marcador de ubicación del usuario */}
+          {/* Marcador del usuario */}
           <Mapbox.PointAnnotation id="userLocation" coordinate={userLocation}>
             <View style={styles.userMarker}>
               <View style={styles.userMarkerInner} />
             </View>
           </Mapbox.PointAnnotation>
+
+          {/* Marcadores de puntos de distribución */}
+          {distributionPoints.map((point, index) => (
+            <Mapbox.PointAnnotation
+              key={point.id}
+              id={`distributionPoint_${point.id}`}
+              coordinate={point.coordinates}>
+              <View style={styles.distributionMarker}>
+                <Text style={styles.distributionMarkerText}>
+                  {point.quantity}
+                </Text>
+              </View>
+            </Mapbox.PointAnnotation>
+          ))}
 
           <TokenMarker animated={true} />
         </Mapbox.MapView>
@@ -195,40 +290,74 @@ const MapScreen = ({ onBack }) => {
         </View>
       </View>
 
-      {/* Bottom Sheet */}
-      {showBottomSheet && (
-        <View style={styles.bottomSheet}>
-          {/* Handle */}
-          <View style={styles.bottomSheetHandle} />
+      {/* Bottom Sheet Arrastrable */}
+      <Animated.View
+        style={[
+          styles.bottomSheet,
+          animatedBottomSheetStyle,
+          {height: SCREEN_HEIGHT},
+        ]}
+        {...panResponder.panHandlers}>
+        {/* Handle para arrastrar */}
+        <View style={styles.bottomSheetHandle} />
 
-          {/* Botón AR */}
-          <TouchableOpacity style={styles.arButton}>
-            <Icon
-              name="camera"
-              size={16}
-              color="#FFFFFF"
-              style={{marginRight: 8}}
-            />
-            <Text style={styles.arButtonText}>ABRIR CÁMARA AR</Text>
-          </TouchableOpacity>
-
-          {/* Tokens Cercanos */}
-          <View style={styles.tokensSection}>
-            <View style={styles.tokensSectionHeader}>
-              <View style={styles.redDot} />
-              <Text style={styles.sectionTitle}>Tokens Cercanos</Text>
+        {/* Contenido del bottom sheet */}
+        <View style={[styles.bottomSheetContent, {height: getContentHeight()}]}>
+          {/* Header del bottom sheet */}
+          <View style={styles.bottomSheetHeader}>
+            <View style={styles.headerLeft}>
+              <Icon name="map-marker" size={16} color="#E50B7B" />
+              <Text style={styles.headerTitle}>
+                Tokens cercanos {hasPoints && `(${distributionPoints.length})`}
+              </Text>
             </View>
-
-            <FlatList
-              data={tokensData}
-              renderItem={renderTokenItem}
-              keyExtractor={item => item.id}
-              showsVerticalScrollIndicator={false}
-              style={styles.tokensList}
-            />
+            {isLoadingPoints && (
+              <ActivityIndicator size="small" color="#07415C" />
+            )}
           </View>
+
+          {/* Mostrar error si existe */}
+          {pointsError && (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{pointsError}</Text>
+              <TouchableOpacity
+                style={styles.retryButton}
+                onPress={handleRefresh}>
+                <Text style={styles.retryButtonText}>Reintentar</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Lista de tokens */}
+          {currentSnapPoint !== 'MINIMIZED' && (
+            <View style={styles.tokensSection}>
+              {hasPoints ? (
+                <FlatList
+                  data={tokensData}
+                  renderItem={renderTokenItem}
+                  keyExtractor={item => item.id}
+                  showsVerticalScrollIndicator={false}
+                  style={styles.tokensList}
+                  contentContainerStyle={styles.tokensListContent}
+                />
+              ) : (
+                !isLoadingPoints &&
+                !pointsError && (
+                  <View style={styles.emptyContainer}>
+                    <Icon name="map-marker" size={48} color="#9CA3AF" />
+                    <Text style={styles.emptyText}>
+                      No hay tokens disponibles
+                    </Text>
+                    <Text style={styles.emptySubtext}>
+                      Los tokens aparecerán cuando estén disponibles en tu área
+                    </Text>
+                  </View>
+                )
+              )}
+            </View>
+          )}
         </View>
-      )}
+      </Animated.View>
     </View>
   );
 };
@@ -253,54 +382,26 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     paddingHorizontal: 16,
     paddingVertical: 12,
     position: 'absolute',
     top: 20,
     zIndex: 999,
     paddingTop: Platform.OS === 'ios' ? 50 : 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  gpsStatus: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  gpsIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#EF4444',
-    marginRight: 6,
-  },
-  gpsText: {
-    fontSize: 14,
-    color: '#374151',
-    fontWeight: '500',
-  },
-  batteryStatus: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  batteryText: {
-    fontSize: 14,
-    color: '#374151',
-    fontWeight: '500',
-  },
-  networkText: {
-    fontSize: 14,
-    color: '#374151',
-    fontWeight: '500',
+    shadowColor: '#000000',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   mapContainer: {
     flex: 1,
@@ -315,7 +416,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: '#FFFFFF',
     borderWidth: 3,
-    borderColor: '#4F46E5',
+    borderColor: '#07415C',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000000',
@@ -328,7 +429,27 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#4F46E5',
+    backgroundColor: '#07415C',
+  },
+  distributionMarker: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#E50B7B',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  distributionMarkerText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   mapControls: {
     position: 'absolute',
@@ -368,123 +489,105 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   bottomSheet: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 32,
-    maxHeight: '50%',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     shadowColor: '#000000',
-    shadowOffset: {width: 0, height: -4},
+    shadowOffset: {width: 0, height: -8},
     shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowRadius: 16,
     elevation: 8,
   },
   bottomSheetHandle: {
-    width: 40,
-    height: 4,
-    backgroundColor: '#D1D5DB',
-    borderRadius: 2,
+    width: 48,
+    height: 5,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 3,
     alignSelf: 'center',
-    marginBottom: 20,
+    marginTop: 12,
+    marginBottom: 8,
   },
-  arButton: {
-    backgroundColor: '#4F46E5',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 12,
+  bottomSheetContent: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingBottom: 32,
+  },
+  bottomSheetHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 24,
-    shadowColor: '#4F46E5',
-    shadowOffset: {width: 0, height: 4},
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    marginBottom: 16,
   },
-  arButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+    marginLeft: 8,
   },
   tokensSection: {
     flex: 1,
   },
-  tokensSectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  redDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#EF4444',
-    marginRight: 8,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#111827',
-  },
   tokensList: {
     flex: 1,
   },
-  tokenItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+  tokensListContent: {
+    paddingBottom: 20,
   },
-  tokenIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
+  errorContainer: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#EF4444',
   },
-  tokenEmoji: {
-    fontSize: 20,
-  },
-  tokenInfo: {
-    flex: 1,
-  },
-  tokenName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 4,
-  },
-  tokenDistance: {
+  errorText: {
+    color: '#DC2626',
     fontSize: 14,
-    color: '#6B7280',
-    fontWeight: '500',
-    marginBottom: 2,
+    marginBottom: 8,
   },
-  tokenStatus: {
-    fontSize: 12,
-    fontWeight: '600',
+  retryButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
   },
-  irButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    minWidth: 44,
-    alignItems: 'center',
-  },
-  irButtonText: {
+  retryButtonText: {
     color: '#FFFFFF',
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    marginTop: 8,
+    textAlign: 'center',
+    paddingHorizontal: 20,
   },
 });
-
 export default MapScreen;
