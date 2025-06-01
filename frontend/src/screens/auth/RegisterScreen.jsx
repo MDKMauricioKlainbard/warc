@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, {useState} from 'react';
 import {
   View,
   Text,
@@ -7,60 +7,103 @@ import {
   StyleSheet,
   Alert,
 } from 'react-native';
-import { register } from '../../utils/auth';
+import {register} from '../../utils/auth';
 
-const RegisterScreen = ({ navigation }) => {
-  const [username, setUsername] = useState('');
+const RegisterScreen = ({navigation}) => {
+  const [name, setName] = useState('');
+  const [lastname, setLastname] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleRegister = async () => {
-    if (!username || !password || !confirmPassword) {
+    // Validar campos vacíos
+    if (!name || !lastname || !email || !password || !confirmPassword) {
       Alert.alert('Error', 'Por favor completa todos los campos');
       return;
     }
 
+    // Validar email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert('Error', 'Por favor ingresa un email válido');
+      return;
+    }
+
+    // Validar contraseñas
     if (password !== confirmPassword) {
       Alert.alert('Error', 'Las contraseñas no coinciden');
       return;
     }
 
+    // Validar longitud de contraseña
+    if (password.length < 6) {
+      Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres');
+      return;
+    }
+
     setLoading(true);
-    const success = await register(username, password);
+    const success = await register(name, lastname, email, password);
     setLoading(false);
 
     if (success) {
       Alert.alert('Éxito', 'Cuenta creada correctamente', [
-        { text: 'OK', onPress: () => navigation.navigate('Login') }
+        {
+          text: 'OK',
+          onPress: () => navigation.navigate('Login'),
+        },
       ]);
     } else {
-      Alert.alert('Error', 'No se pudo crear la cuenta');
+      Alert.alert(
+        'Error',
+        'No se pudo crear la cuenta. Verifica que el email no esté en uso.',
+      );
     }
   };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Crear Cuenta</Text>
-      
+
       <TextInput
         style={styles.input}
-        placeholder="Usuario"
+        placeholder="Nombre"
         placeholderTextColor="#A855A1"
-        value={username}
-        onChangeText={setUsername}
-        autoCapitalize="none"
+        value={name}
+        onChangeText={setName}
+        autoCapitalize="words"
       />
-      
+
       <TextInput
         style={styles.input}
-        placeholder="Contraseña"
+        placeholder="Apellido"
+        placeholderTextColor="#A855A1"
+        value={lastname}
+        onChangeText={setLastname}
+        autoCapitalize="words"
+      />
+
+      <TextInput
+        style={styles.input}
+        placeholder="Email"
+        placeholderTextColor="#A855A1"
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+        keyboardType="email-address"
+        autoCorrect={false}
+      />
+
+      <TextInput
+        style={styles.input}
+        placeholder="Contraseña (mín. 6 caracteres)"
         placeholderTextColor="#A855A1"
         value={password}
         onChangeText={setPassword}
         secureTextEntry
       />
-      
+
       <TextInput
         style={styles.input}
         placeholder="Confirmar Contraseña"
@@ -69,21 +112,19 @@ const RegisterScreen = ({ navigation }) => {
         onChangeText={setConfirmPassword}
         secureTextEntry
       />
-      
+
       <TouchableOpacity
-        style={styles.button}
+        style={[styles.button, loading && styles.buttonDisabled]}
         onPress={handleRegister}
-        disabled={loading}
-      >
+        disabled={loading}>
         <Text style={styles.buttonText}>
           {loading ? 'Cargando...' : 'Crear Cuenta'}
         </Text>
       </TouchableOpacity>
-      
+
       <TouchableOpacity
         onPress={() => navigation.navigate('Login')}
-        style={styles.linkButton}
-      >
+        style={styles.linkButton}>
         <Text style={styles.linkText}>¿Ya tienes cuenta? Inicia sesión</Text>
       </TouchableOpacity>
     </View>
@@ -104,7 +145,7 @@ const styles = StyleSheet.create({
     marginBottom: 50,
     color: '#E91E63',
     textShadowColor: '#C2185B',
-    textShadowOffset: { width: 0, height: 2 },
+    textShadowOffset: {width: 0, height: 2},
     textShadowRadius: 4,
   },
   input: {
@@ -118,7 +159,7 @@ const styles = StyleSheet.create({
     borderColor: '#E91E63',
     color: '#FFFFFF',
     shadowColor: '#E91E63',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 5,
@@ -129,10 +170,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginTop: 20,
     shadowColor: '#C2185B',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: {width: 0, height: 4},
     shadowOpacity: 0.4,
     shadowRadius: 6,
     elevation: 8,
+  },
+  buttonDisabled: {
+    backgroundColor: '#A855A1',
+    opacity: 0.7,
   },
   buttonText: {
     color: '#FFFFFF',
