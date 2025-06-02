@@ -7,68 +7,96 @@ import {
   TouchableOpacity,
   Dimensions,
   FlatList,
+  Image,
+  ActivityIndicator,
 } from 'react-native';
 import MapScreen from '../map/MapScreen';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import TokenItem from '../../components/map/TokenItem';
+import {useDistributionPoints} from '../../hooks/UseDistributionPoints';
 
 const {width} = Dimensions.get('window');
 
 const HomeScreen = () => {
   const [currentScreen, setCurrentScreen] = useState('home');
+  const [targetCoordinates, setTargetCoordinates] = useState(null);
 
-  const navigateToMap = () => {
+  // Usar el hook para obtener datos reales de los tokens
+  const {
+    userLocation,
+    isLoading,
+    isMapReady,
+    distributionPoints,
+    isLoadingPoints,
+    pointsError,
+    hasPoints,
+    refreshDistributionPoints,
+    getPointDistanceInfo,
+    getNearbyPoints,
+    calculateDistance,
+  } = useDistributionPoints();
+
+  const navigateToMap = (coordinates = null) => {
+    setTargetCoordinates(coordinates);
     setCurrentScreen('map');
   };
 
   const navigateToHome = () => {
     setCurrentScreen('home');
+    setTargetCoordinates(null);
   };
 
-  // Datos de ejemplo para los tokens
-  const tokensData = [
-    {
-      id: '1',
-      name: 'Token Dorado',
-      distance: '150m al norte',
-      icon: '🏆',
-      color: '#FCD34D',
-    },
-    {
-      id: '2',
-      name: 'NFT Arte Digital',
-      distance: '320m al este',
-      icon: '🎨',
-      color: '#A78BFA',
-    },
-    {
-      id: '3',
-      name: 'Gema Rara',
-      distance: '180m al sur',
-      icon: '💎',
-      color: '#34D399',
-    },
-    {
-      id: '4',
-      name: 'Tesoro Escondido',
-      distance: '450m al oeste',
-      icon: '🗝️',
-      color: '#F87171',
-    },
-  ];
+  // Convertir puntos de distribución al formato esperado por TokenItem
+  const tokensData = React.useMemo(() => {
+    if (!hasPoints || !userLocation) return [];
+
+    return distributionPoints.map((point, index) => {
+      const distanceInfo = getPointDistanceInfo(point);
+
+      return {
+        id: point.id,
+        name: `Token #${index + 1}`,
+        distance: distanceInfo.distanceText,
+        icon: point.quantity >= 5 ? '🏆' : point.quantity >= 3 ? '💎' : '📦',
+        color: '#07415C',
+        status:
+          distanceInfo.distance < 0.01
+            ? 'En rango'
+            : distanceInfo.distance < 0.5
+            ? 'Caminar'
+            : 'Zona AR',
+        statusColor:
+          distanceInfo.distance < 0.01
+            ? '#E50B7B'
+            : distanceInfo.distance < 0.5
+            ? '#9CA3AF'
+            : '#06B6D4',
+        coordinates: point.coordinates,
+        quantity: point.quantity,
+      };
+    });
+  }, [distributionPoints, userLocation, getPointDistanceInfo, hasPoints]);
+
+  // Separar tokens por estado para las estadísticas
+  const tokensInRange = tokensData.filter(token => token.status === 'En rango');
+  const nftTokens = tokensData.filter(token => token.quantity >= 3);
+
+  const handleTokenPress = token => {
+    console.log('Navegando a token:', token.name, token.coordinates);
+    navigateToMap(token.coordinates);
+  };
 
   const renderTokenItem = ({item}) => (
-    <TokenItem
-      item={item}
-      onPress={token => {
-        // Manejar la acción de ir al token
-        console.log('Ir a token:', token.name);
-      }}
-    />
+    <TokenItem item={item} onPress={handleTokenPress} showStatus={false} />
   );
 
   if (currentScreen === 'map') {
-    return <MapScreen onBack={navigateToHome} />;
+    return (
+      <MapScreen
+        onBack={navigateToHome}
+        initialTargetCoordinates={targetCoordinates}
+      />
+    );
   }
 
   return (
@@ -76,33 +104,45 @@ const HomeScreen = () => {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
-        {/* Mapa interactivo placeholder */}
+        {/* Mapa preview */}
         <View style={styles.mapContainer}>
           <TouchableOpacity
-            style={styles.mapPlaceholder}
-            onPress={navigateToMap}>
-            {/* Decorative icons */}
-            <View style={[styles.decorativeIcon, styles.icon1]}>
-              <Text style={styles.iconText}>💰</Text>
-            </View>
-            <View style={[styles.decorativeIcon, styles.icon2]}>
-              <Text style={styles.iconText}>💎</Text>
-            </View>
-            <View style={[styles.decorativeIcon, styles.icon3]}>
-              <Text style={styles.iconText}>🏆</Text>
+            style={styles.mapPreview}
+            onPress={() => navigateToMap()}>
+            {/* Placeholder para preview del mapa */}
+            <View style={styles.mapPlaceholder}>
+              {/* Markers decorativos */}
+              <View style={[styles.marker, styles.marker1]}>
+                <View style={styles.markerInner} />
+              </View>
+              <View style={[styles.marker, styles.marker2]}>
+                <View style={styles.markerInner} />
+              </View>
+              <View style={[styles.marker, styles.marker3]}>
+                <View style={styles.markerInner} />
+              </View>
+              <View style={[styles.marker, styles.marker4]}>
+                <View style={styles.markerInner} />
+              </View>
+              <View style={[styles.marker, styles.marker5]}>
+                <View style={styles.markerInner} />
+              </View>
+
+              {/* Grid pattern */}
+              <View style={styles.gridPattern}>
+                {Array.from({length: 6}).map((_, row) =>
+                  Array.from({length: 8}).map((_, col) => (
+                    <View key={`${row}-${col}`} style={styles.gridDot} />
+                  )),
+                )}
+              </View>
             </View>
 
             {/* Botón central de explorar */}
             <TouchableOpacity
               style={styles.exploreButton}
-              onPress={navigateToMap}>
-              <Icon
-                name="globe"
-                size={16}
-                color="#FFFFFF"
-                style={{marginRight: 8}}
-              />
-              <Text style={styles.exploreButtonText}>EXPLORAR</Text>
+              onPress={() => navigateToMap()}>
+              <Text style={styles.exploreButtonText}>Explorar</Text>
             </TouchableOpacity>
           </TouchableOpacity>
         </View>
@@ -110,12 +150,16 @@ const HomeScreen = () => {
         {/* Stats Cards */}
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
-            <Text style={styles.statNumber}>12</Text>
-            <Text style={styles.statLabel}>Tokens Cercanos</Text>
+            <Text style={styles.statNumber}>
+              {isLoadingPoints ? '...' : distributionPoints.length}
+            </Text>
+            <Text style={styles.statLabel}>tokens cercanos</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statNumber}>3</Text>
-            <Text style={styles.statLabel}>NFTs Disponibles</Text>
+            <Text style={styles.statNumber}>
+              {isLoadingPoints ? '...' : nftTokens.length}
+            </Text>
+            <Text style={styles.statLabel}>NFTs disponibles</Text>
           </View>
         </View>
 
@@ -123,20 +167,49 @@ const HomeScreen = () => {
         <View style={styles.tokensSection}>
           <View style={styles.tokensSectionHeader}>
             <View style={styles.sectionTitleContainer}>
-              <View style={styles.redDot} />
+              <Icon name="map-marker" size={16} color="#E50B7B" />
               <Text style={styles.sectionTitle}>
-                Tokens en tu área (Radio 2km)
+                Tokens en tu área (radio 2km)
               </Text>
             </View>
+            {isLoadingPoints && (
+              <ActivityIndicator size="small" color="#07415C" />
+            )}
           </View>
 
-          <FlatList
-            data={tokensData}
-            renderItem={renderTokenItem}
-            keyExtractor={item => item.id}
-            scrollEnabled={false}
-            showsVerticalScrollIndicator={false}
-          />
+          {/* Mostrar error si existe */}
+          {pointsError && (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{pointsError}</Text>
+              <TouchableOpacity
+                style={styles.retryButton}
+                onPress={refreshDistributionPoints}>
+                <Text style={styles.retryButtonText}>Reintentar</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Lista de tokens o mensaje vacío */}
+          {hasPoints ? (
+            <FlatList
+              data={tokensData}
+              renderItem={renderTokenItem}
+              keyExtractor={item => item.id}
+              scrollEnabled={false}
+              showsVerticalScrollIndicator={false}
+            />
+          ) : (
+            !isLoadingPoints &&
+            !pointsError && (
+              <View style={styles.emptyContainer}>
+                <Icon name="map-marker" size={48} color="#9CA3AF" />
+                <Text style={styles.emptyText}>No hay tokens disponibles</Text>
+                <Text style={styles.emptySubtext}>
+                  Los tokens aparecerán cuando estén disponibles en tu área
+                </Text>
+              </View>
+            )
+          )}
         </View>
       </ScrollView>
     </View>
@@ -156,10 +229,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 20,
   },
-  mapPlaceholder: {
+  mapPreview: {
     height: 200,
     borderRadius: 16,
-    backgroundColor: 'linear-gradient(135deg, #E0F2FE 0%, #F3E8FF 100%)',
+    backgroundColor: '#E8F4FD',
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
@@ -170,44 +243,74 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
+    overflow: 'hidden',
   },
-  decorativeIcon: {
+  mapPlaceholder: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#E8F4FD',
+  },
+  gridPattern: {
     position: 'absolute',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-around',
+    alignItems: 'space-around',
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+  },
+  gridDot: {
+    width: 2,
+    height: 2,
+    backgroundColor: '#B8D4E8',
+    borderRadius: 1,
+    margin: 8,
+  },
+  marker: {
+    position: 'absolute',
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#E50B7B',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000000',
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
-  icon1: {
+  marker1: {
     top: 30,
+    left: 40,
+  },
+  marker2: {
+    top: 50,
+    right: 60,
+  },
+  marker3: {
+    bottom: 60,
     left: 30,
   },
-  icon2: {
-    top: 30,
-    right: 30,
+  marker4: {
+    top: 80,
+    left: '50%',
+    marginLeft: -6,
   },
-  icon3: {
-    bottom: 30,
-    left: 30,
+  marker5: {
+    bottom: 40,
+    right: 40,
   },
-  iconText: {
-    fontSize: 20,
+  markerInner: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#FFFFFF',
   },
   exploreButton: {
-    backgroundColor: '#4F46E5',
-    paddingHorizontal: 24,
+    backgroundColor: '#0B4A5C',
+    paddingHorizontal: 32,
     paddingVertical: 12,
     borderRadius: 25,
-    flexDirection: 'row',
-    alignItems: 'center',
-    shadowColor: '#4F46E5',
+    shadowColor: '#0B4A5C',
     shadowOffset: {width: 0, height: 4},
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -227,7 +330,7 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#3B82F6',
+    backgroundColor: '#E50B7B',
     borderRadius: 12,
     paddingVertical: 20,
     paddingHorizontal: 16,
@@ -247,84 +350,72 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#DBEAFE',
+    color: '#FFFFFF',
     textAlign: 'center',
+    opacity: 0.9,
   },
   tokensSection: {
     paddingHorizontal: 16,
     paddingTop: 32,
   },
   tokensSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 16,
   },
   sectionTitleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  redDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#EF4444',
-    marginRight: 8,
-  },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: '#111827',
+    marginLeft: 8,
   },
-  tokenItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000000',
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
+  errorContainer: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#EF4444',
   },
-  tokenIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  tokenEmoji: {
-    fontSize: 20,
-  },
-  tokenInfo: {
-    flex: 1,
-  },
-  tokenName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 4,
-  },
-  tokenDistance: {
+  errorText: {
+    color: '#DC2626',
     fontSize: 14,
-    color: '#6B7280',
-    fontWeight: '500',
+    marginBottom: 8,
   },
-  irButton: {
-    backgroundColor: '#10B981',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    minWidth: 44,
-    alignItems: 'center',
+  retryButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
   },
-  irButtonText: {
+  retryButtonText: {
     color: '#FFFFFF',
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    marginTop: 8,
+    textAlign: 'center',
+    paddingHorizontal: 20,
   },
 });
 

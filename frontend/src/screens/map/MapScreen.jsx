@@ -40,10 +40,16 @@ const SNAP_POINTS = {
   MAXIMIZED: 0.8, // 85%
 };
 
-const MapScreen = ({onBack}) => {
+const MapScreen = ({onBack, initialTargetCoordinates}) => {
   const [currentSnapPoint, setCurrentSnapPoint] = useState('MINIMIZED');
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedToken, setSelectedToken] = useState(null);
+  const [targetCoordinates, setTargetCoordinates] = useState(
+    initialTargetCoordinates,
+  );
+
+  // Referencias para la cámara del mapa
+  const cameraRef = useRef(null);
 
   // Usar el nuevo hook para obtener puntos de distribución
   const {
@@ -64,6 +70,21 @@ const MapScreen = ({onBack}) => {
   const translateY = useSharedValue(
     SCREEN_HEIGHT * (1 - SNAP_POINTS.MINIMIZED),
   );
+
+  // Efecto para centrar el mapa en las coordenadas objetivo
+  useEffect(() => {
+    if (targetCoordinates && cameraRef.current && isMapReady) {
+      console.log('Centrando mapa en coordenadas:', targetCoordinates);
+      cameraRef.current.setCamera({
+        centerCoordinate: targetCoordinates,
+        zoomLevel: 16,
+        animationDuration: 2000,
+      });
+
+      // Abrir el bottom sheet a posición media para mostrar el token
+      snapToPoint('MEDIUM');
+    }
+  }, [targetCoordinates, isMapReady]);
 
   // Función para determinar si un punto está dentro del rango de 10 metros
   const isPointInRange = point => {
@@ -140,6 +161,18 @@ const MapScreen = ({onBack}) => {
       };
     });
   }, [distributionPoints, userLocation, getPointDistanceInfo, hasPoints]);
+
+  // Función para centrar el mapa en un token específico
+  const centerMapOnToken = coordinates => {
+    if (cameraRef.current && coordinates) {
+      console.log('Centrando mapa en token:', coordinates);
+      cameraRef.current.setCamera({
+        centerCoordinate: coordinates,
+        zoomLevel: 16,
+        animationDuration: 2000,
+      });
+    }
+  };
 
   // Función para mover a un punto de ajuste específico
   const snapToPoint = point => {
@@ -224,6 +257,7 @@ const MapScreen = ({onBack}) => {
           'Coordenadas:',
           token.coordinates,
         );
+        centerMapOnToken(token.coordinates);
       }}
     />
   );
@@ -291,8 +325,9 @@ const MapScreen = ({onBack}) => {
           rotateEnabled={true}
           styleURL="mapbox://styles/mapbox/light-v10">
           <Mapbox.Camera
-            centerCoordinate={userLocation}
-            zoomLevel={14}
+            ref={cameraRef}
+            centerCoordinate={targetCoordinates || userLocation}
+            zoomLevel={targetCoordinates ? 16 : 14}
             animationMode="flyTo"
             animationDuration={2000}
           />
@@ -665,4 +700,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
 });
+
 export default MapScreen;

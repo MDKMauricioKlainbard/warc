@@ -1,32 +1,52 @@
 import React from 'react';
 import {View, Text, TouchableOpacity, StyleSheet} from 'react-native';
 
-const TokenItem = ({item, onPress}) => {
+const TokenItem = ({item, onPress, showStatus = true}) => {
   const getButtonColor = status => {
     switch (status) {
       case 'En rango':
         return '#E50B7B';
       case 'Zona AR':
         return '#06B6D4';
-      default:
+      case 'Caminar':
         return '#9CA3AF';
+      default:
+        return '#E50B7B';
     }
   };
+
+  const getIconForQuantity = quantity => {
+    if (quantity >= 5) return '🏆';
+    if (quantity >= 3) return '💎';
+    return '📦';
+  };
+
+  const displayIcon = item.icon || getIconForQuantity(item.quantity || 1);
 
   return (
     <View style={styles.tokenItem}>
       <View style={styles.tokenIconContainer}>
-        <View style={[styles.tokenIcon, {backgroundColor: item.color}]}>
-          <Text style={styles.tokenEmoji}>{item.icon}</Text>
+        <View
+          style={[
+            styles.tokenIcon,
+            {backgroundColor: item.color || '#07415C'},
+          ]}>
+          <Text style={styles.tokenEmoji}>{displayIcon}</Text>
         </View>
       </View>
 
       <View style={styles.tokenInfo}>
         <Text style={styles.tokenName}>{item.name}</Text>
         <Text style={styles.tokenDistance}>{item.distance}</Text>
-        <Text style={[styles.tokenStatus, {color: item.statusColor}]}>
-          {item.status}
-        </Text>
+        {showStatus && item.status && (
+          <Text
+            style={[
+              styles.tokenStatus,
+              {color: item.statusColor || '#9CA3AF'},
+            ]}>
+            {item.status}
+          </Text>
+        )}
       </View>
 
       <TouchableOpacity
